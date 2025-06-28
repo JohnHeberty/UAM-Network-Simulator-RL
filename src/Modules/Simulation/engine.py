@@ -398,7 +398,7 @@ class VTOL(Drawable, Movable, Stateful, Cleanable):
     
     def _start_landing(self):
         """Inicia a sequência de pouso ou pairar se não há vaga"""
-        if self.state in ["flying", "in_transit"]:
+        if self.state in ["flying", "in_transit", "hovering"]:
             # Verifica se o vertiport de destino tem capacidade
             if self.destination_vertiport and hasattr(self.destination_vertiport, 'request_landing'):
                 if self.destination_vertiport.request_landing(self):
@@ -407,6 +407,8 @@ class VTOL(Drawable, Movable, Stateful, Cleanable):
                     self.state_timer = 30  # 0.5 segundos a 60 FPS
                     self.scale_target = 0.4
                     self.scale_animation = True
+                    # Reset da flag de tentativa de pouso
+                    self._can_attempt_landing = False
                 else:
                     # Sem vaga - deve pairar
                     self._start_hovering()
@@ -416,6 +418,8 @@ class VTOL(Drawable, Movable, Stateful, Cleanable):
                 self.state_timer = 30
                 self.scale_target = 0.4
                 self.scale_animation = True
+                # Reset da flag de tentativa de pouso
+                self._can_attempt_landing = False
     
     def _start_hovering(self):
         """Inicia o estado de pairar sobre o vertiport"""
@@ -427,6 +431,10 @@ class VTOL(Drawable, Movable, Stateful, Cleanable):
                 self.destination_vertiport.x + 30,  # Centro X do vertiport
                 self.destination_vertiport.y + 10   # Um pouco acima do vertiport
             )
+            # Certifica-se de que está na fila de hovering
+            if (hasattr(self.destination_vertiport, 'hovering_queue') and 
+                self not in self.destination_vertiport.hovering_queue):
+                self.destination_vertiport.hovering_queue.append(self)
         self._can_attempt_landing = False
     
     def _update_scale_animation(self):
@@ -542,17 +550,18 @@ class VTOL(Drawable, Movable, Stateful, Cleanable):
                 )
                 self.xo, self.yo = new_pos
             
-            # Verifica periodicamente se pode tentar pousar novamente
-            if self.state_timer <= 0:
-                if (self._can_attempt_landing or 
-                    (self.destination_vertiport and 
-                     hasattr(self.destination_vertiport, 'can_land') and 
-                     self.destination_vertiport.can_land(self))):
-                    # Tenta pousar novamente
+            # Verifica se foi notificado para tentar pousar ou se o timer expirou
+            if (self._can_attempt_landing or self.state_timer <= 0):
+                # Tenta pousar novamente
+                if (self.destination_vertiport and 
+                    hasattr(self.destination_vertiport, 'can_land') and 
+                    self.destination_vertiport.can_land(self)):
+                    # Pode pousar - inicia sequência de pouso
                     self._start_landing()
                 else:
-                    # Continua pairando - reseta o timer
+                    # Ainda não pode pousar - continua pairando
                     self.state_timer = 60  # Tenta novamente em 1 segundo
+                    self._can_attempt_landing = False  # Reset da flag
         
         elif self.state == "landed":
             # Se é um VTOL circulante, verifica se precisa agendar próximo destino
@@ -723,10 +732,11 @@ class Vertiport(Drawable):
             self.occupied_slots.remove(vtol)
             # Verifica se há VTOLs esperando na fila
             if self.hovering_queue:
+                # Notifica apenas o primeiro VTOL da fila
                 next_vtol = self.hovering_queue[0]
-                # Notifica o próximo VTOL que pode tentar pousar
                 if hasattr(next_vtol, '_can_attempt_landing'):
                     next_vtol._can_attempt_landing = True
+                    print(f"📢 Notificando {getattr(next_vtol, 'vtol_id', 'VTOL')} para tentar pousar")
             return True
         return False
 
