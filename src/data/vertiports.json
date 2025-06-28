@@ -1,0 +1,42 @@
+[
+  {
+    "id": "V1",
+    "name": "Aeroporto Central",
+    "x": 200,
+    "y": 150,
+    "capacity": 2,
+    "connections": ["V2", "V3"]
+  },
+  {
+    "id": "V2", 
+    "name": "Hospital Metropolitano",
+    "x": 500,
+    "y": 200,
+    "capacity": 2,
+    "connections": ["V1", "V4"]
+  },
+  {
+    "id": "V3",
+    "name": "Centro Comercial",
+    "x": 300,
+    "y": 400,
+    "capacity": 2,
+    "connections": ["V1", "V4", "V5"]
+  },
+  {
+    "id": "V4",
+    "name": "Universidade Tech",
+    "x": 700,
+    "y": 350,
+    "capacity": 2,
+    "connections": ["V2", "V3", "V5"]
+  },
+  {
+    "id": "V5",
+    "name": "Porto Industrial",
+    "x": 600,
+    "y": 550,
+    "capacity": 2,
+    "connections": ["V3", "V4"]
+  }
+]

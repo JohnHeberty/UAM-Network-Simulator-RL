@@ -1,0 +1,44 @@
+[
+  {
+    "vtol_id": "ALPHA-1",
+    "route": ["V1", "V2", "V4", "V5"],
+    "start_at_index": 0,
+    "loop_route": true
+  },
+  {
+    "vtol_id": "BETA-2",
+    "route": ["V3", "V1", "V2"],
+    "start_at_index": 0,
+    "loop_route": true
+  },
+  {
+    "vtol_id": "GAMMA-3",
+    "route": ["V4", "V3", "V5", "V2"],
+    "start_at_index": 0,
+    "loop_route": true
+  },
+  {
+    "vtol_id": "DELTA-4",
+    "route": ["V5", "V4", "V2", "V1", "V3"],
+    "start_at_index": 2,
+    "loop_route": false
+  },
+  {
+    "vtol_id": "ECHO-5",
+    "route": ["V2", "V3", "V4"],
+    "start_at_index": 0,
+    "loop_route": true
+  },
+  {
+    "vtol_id": "FOXTROT-6",
+    "route": ["V1", "V3", "V5", "V4", "V2"],
+    "start_at_index": 1,
+    "loop_route": false
+  },
+  {
+    "vtol_id": "GOLF-7",
+    "route": ["V4", "V5", "V1"],
+    "start_at_index": 2,
+    "loop_route": true
+  }
+]
