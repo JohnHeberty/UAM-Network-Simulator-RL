@@ -431,10 +431,6 @@ class VTOL(Drawable, Movable, Stateful, Cleanable):
                 self.destination_vertiport.x + 30,  # Centro X do vertiport
                 self.destination_vertiport.y + 10   # Um pouco acima do vertiport
             )
-            # Certifica-se de que está na fila de hovering
-            if (hasattr(self.destination_vertiport, 'hovering_queue') and 
-                self not in self.destination_vertiport.hovering_queue):
-                self.destination_vertiport.hovering_queue.append(self)
         self._can_attempt_landing = False
     
     def _update_scale_animation(self):
@@ -732,11 +728,10 @@ class Vertiport(Drawable):
             self.occupied_slots.remove(vtol)
             # Verifica se há VTOLs esperando na fila
             if self.hovering_queue:
-                # Notifica apenas o primeiro VTOL da fila
                 next_vtol = self.hovering_queue[0]
+                # Notifica o próximo VTOL que pode tentar pousar
                 if hasattr(next_vtol, '_can_attempt_landing'):
                     next_vtol._can_attempt_landing = True
-                    print(f"📢 Notificando {getattr(next_vtol, 'vtol_id', 'VTOL')} para tentar pousar")
             return True
         return False
 
@@ -1220,10 +1215,8 @@ class Simulation:
     - DIP: Depende de abstrações, não de implementações concretas
     """
     def __init__(self, 
-                 num_vtols: int = 4, 
-                 vertiports_json: Optional[str] = None, 
-                 vtol_routes_json: Optional[str] = None, 
-                 auto_create_network: bool = True,
+                 vertiports_json: str = "vertiports.json", 
+                 vtol_routes_json: str = "vtol_routes.json",
                  network_manager: Optional['Network'] = None):
         
         # Composição com implementação específica
@@ -1231,31 +1224,24 @@ class Simulation:
         self.people: List[Person] = []
         self.network: 'Network' = network_manager or Network()
         self._highlight_timer: int = 0
-        self.num_vtols: int = num_vtols
         self.vertiports_list: List[dict] = []
         self.vertiports_map: dict = {}
         
         # Inicializa a Matriz OD
         self.matriz_od = MatrizOD()
         
-        # Configura a rede baseado nos parâmetros
-        self._setup_network(vertiports_json, vtol_routes_json, auto_create_network)
+        # Configura a rede baseado nos JSONs obrigatórios
+        self._setup_network(vertiports_json, vtol_routes_json)
         
         # Configurações finais
         self.network.clear_highlight()
         self._show_network_info()
 
-    def _setup_network(self, vertiports_json: Optional[str], vtol_routes_json: Optional[str], auto_create_network: bool) -> None:
-        """Configura a rede baseado nos parâmetros fornecidos"""
-        if vertiports_json and vtol_routes_json:
-            print("🔧 Modo Personalizado: Carregando configuração via JSON...")
-            self._load_vertiports_from_json(vertiports_json)
-            self._load_vtol_routes_from_json(vtol_routes_json)
-        elif auto_create_network:
-            print("🔄 Modo Automático: Criando rede circular padrão...")
-            self.create_initial_network()
-            self._register_vertiports_in_od()
-            self._create_circulating_vtols()
+    def _setup_network(self, vertiports_json: str, vtol_routes_json: str) -> None:
+        """Configura a rede baseado nos arquivos JSON obrigatórios"""
+        print("🔧 Carregando configuração via JSON...")
+        self._load_vertiports_from_json(vertiports_json)
+        self._load_vtol_routes_from_json(vtol_routes_json)
 
     def _load_vertiports_from_json(self, json_file_path):
         """Carrega vertiportos de um arquivo JSON."""
@@ -1308,9 +1294,8 @@ class Simulation:
             print(f"📍 {len(self.vertiports_list)} vertiportos carregados com sucesso!")
             
         except Exception as e:
-            print(f"❌ Erro ao carregar vertiportos do JSON: {e}")
-            # Fallback para rede automática
-            self.create_initial_network()
+            print(f"❌ Erro crítico ao carregar vertiportos do JSON: {e}")
+            raise RuntimeError(f"Falha ao carregar arquivo JSON de vertiportos: {e}")
     
     def _create_connections_from_json(self, vertiports_data):
         """Cria conexões entre vertiportos baseado no JSON."""
@@ -1440,148 +1425,16 @@ class Simulation:
         if self.evtols:
             print("\n🚁 VTOLs e suas Rotas:")
             for vtol in self.evtols:
-                if hasattr(vtol, 'custom_route'):
+                if hasattr(vtol, 'custom_route') and vtol.custom_route:
                     route_str = ' → '.join(vtol.custom_route)
                     loop_str = " (🔄 Loop)" if getattr(vtol, 'loop_route', False) else " (➡️ Linear)"
                     print(f"   {vtol.vtol_id}: {route_str}{loop_str}")
                 else:
-                    print(f"   {vtol.vtol_id}: Rota circular padrão")
+                    print(f"   {vtol.vtol_id}: Sem rota definida")
 
     def get_circulating_vtols_count(self):
         """Retorna o número de VTOLs circulantes ativos."""
         return sum(1 for vtol in self.evtols if hasattr(vtol, 'is_circulating') and vtol.is_circulating)
-    
-    def spawn_vertiport(self, x=None, y=None, auto_connect=True):
-        """Adiciona um novo vertiport à rede em posição específica"""
-        x = random.randint(50, WIDTH - 50) if x is None else x
-        y = random.randint(50, HEIGHT - 50) if y is None else y
-        vertiport = Vertiport(x, y)
-        self.network.add_node(vertiport)
-        # Conecta automaticamente com vertiportos próximos apenas se solicitado
-        if auto_connect:
-            self.network.auto_connect_nearby(max_distance=200)
-        return vertiport
-
-    def create_initial_network(self):
-        """Cria uma rede circular de vertiportos com conexões sequenciais"""
-        import math
-        
-        # Parâmetros do círculo
-        center_x, center_y = WIDTH // 2, HEIGHT // 2  # Centro da tela
-        radius = 250  # Raio do círculo
-        num_vertiports = 8  # Número de vertiportos no círculo
-        
-        # Lista para armazenar os vertiportos criados em ordem
-        vertiports_in_circle = []
-        
-        # Cria vertiportos em posições circulares
-        for i in range(num_vertiports):
-            # Calcula o ângulo para este vertiport (distribuição uniforme)
-            angle = (2 * math.pi * i) / num_vertiports
-            
-            # Calcula as coordenadas x, y baseadas no ângulo
-            x = int(center_x + radius * math.cos(angle))
-            y = int(center_y + radius * math.sin(angle))
-            
-            # Cria o vertiport sem auto-conectar
-            vertiport = Vertiport(x, y)
-            self.network.add_node(vertiport)
-            vertiports_in_circle.append(vertiport)
-        
-        # Conecta cada vertiport apenas com o próximo na sequência (rede circular)
-        for i in range(len(vertiports_in_circle)):
-            current_vertiport = vertiports_in_circle[i]
-            next_vertiport = vertiports_in_circle[(i + 1) % len(vertiports_in_circle)]  # % para fazer o último conectar com o primeiro
-            
-            # Adiciona link bidirecional entre vertiportos adjacentes
-            self.network.add_link(current_vertiport, next_vertiport)
-    
-    def _register_vertiports_in_od(self):
-        """Registra os vertiportos da rede na matriz OD."""
-        if not self.network or not self.network.nodes:
-            return
-            
-        # Registra cada vertiport na matriz OD
-        for i, node in enumerate(self.network.nodes):
-            vertiport_info = {
-                'id': f"V{i+1}",
-                'name': f"Vertiport {i+1}",
-                'x': node.x,
-                'y': node.y
-            }
-            self.vertiports_list.append(vertiport_info)
-            
-        print(f"📋 Registrados {len(self.vertiports_list)} vertiportos na matriz OD")
-    
-    def _create_circulating_vtols(self):
-        """Cria VTOLs fixos que circulam constantemente pela rede."""
-        if len(self.vertiports_list) < 2:
-            print("⚠️ Rede insuficiente para VTOLs circulantes (mínimo 2 vertiportos)")
-            return
-            
-        # Distribui VTOLs pelos vertiportos
-        for i in range(self.num_vtols):
-            # Posição inicial no vertiport
-            start_vertiport_idx = i % len(self.vertiports_list)
-            start_vertiport = self.vertiports_list[start_vertiport_idx]
-            
-            # Próximo vertiport na sequência circular
-            next_vertiport_idx = (start_vertiport_idx + 1) % len(self.vertiports_list)
-            next_vertiport = self.vertiports_list[next_vertiport_idx]
-            
-            # Encontra os objetos Vertiport correspondentes na rede
-            start_vertiport_obj = None
-            next_vertiport_obj = None
-            
-            for node in self.network.nodes:
-                if hasattr(node, 'x') and hasattr(node, 'y'):
-                    if (abs(node.x - start_vertiport['x']) < 5 and 
-                        abs(node.y - start_vertiport['y']) < 5):
-                        start_vertiport_obj = node
-                    if (abs(node.x - next_vertiport['x']) < 5 and 
-                        abs(node.y - next_vertiport['y']) < 5):
-                        next_vertiport_obj = node
-            
-            if not start_vertiport_obj or not next_vertiport_obj:
-                print(f"⚠️ Não foi possível encontrar vertiports na rede para VTOL {i+1}")
-                continue
-            
-            # Cria VTOL na posição do vertiport inicial
-            vtol = VTOL(
-                x=start_vertiport['x'] + 30,  # Centro do vertiport
-                y=start_vertiport['y'] + 30,
-                network=self.network
-            )
-            
-            # Adiciona propriedades para circulação
-            vtol.is_circulating = True  # Marca como VTOL circulante
-            vtol.vtol_id = f"VTOL-{i+1}"  # ID personalizado
-            vtol.current_vertiport = start_vertiport_obj
-            
-            # Define destino e inicia movimento
-            if vtol.set_destination_vertiport(next_vertiport_obj):
-                print(f"🚁 {vtol.vtol_id}: {start_vertiport['name']} → {next_vertiport['name']}")
-            else:
-                print(f"⚠️ Falha ao definir rota para {vtol.vtol_id}")
-            
-            self.evtols.append(vtol)
-    
-    def _get_next_vertiport_for_vtol(self, current_destination_id):
-        """Retorna o próximo vertiport na sequência circular."""
-        # Encontra o índice do vertiport atual
-        current_idx = None
-        for i, vertiport in enumerate(self.vertiports_list):
-            if vertiport['id'] == current_destination_id:
-                current_idx = i
-                break
-        
-        if current_idx is not None:
-            # Próximo vertiport na sequência circular
-            next_idx = (current_idx + 1) % len(self.vertiports_list)
-            return self.vertiports_list[next_idx]
-        
-        # Fallback: retorna o primeiro vertiport
-        return self.vertiports_list[0] if self.vertiports_list else None
     
     def get_network_info(self):
         """Retorna informações sobre a rede"""
@@ -1607,44 +1460,12 @@ class Simulation:
         """Remove o destaque da rota"""
         self.network.clear_highlight()
     
-    def create_circular_network(self, num_vertiports=8, radius=250):
-        """Cria uma nova rede circular com parâmetros personalizados"""
-        import math
-        
-        # Limpa a rede atual
-        self.network = Network()
-        
-        # Parâmetros do círculo
-        center_x, center_y = WIDTH // 2, HEIGHT // 2
-        
-        # Lista para armazenar os vertiportos criados em ordem
-        vertiports_in_circle = []
-        
-        # Cria vertiportos em posições circulares
-        for i in range(num_vertiports):
-            angle = (2 * math.pi * i) / num_vertiports
-            x = int(center_x + radius * math.cos(angle))
-            y = int(center_y + radius * math.sin(angle))
-            
-            vertiport = Vertiport(x, y)
-            self.network.add_node(vertiport)
-            vertiports_in_circle.append(vertiport)
-        
-        # Conecta cada vertiport apenas com o próximo na sequência
-        for i in range(len(vertiports_in_circle)):
-            current_vertiport = vertiports_in_circle[i]
-            next_vertiport = vertiports_in_circle[(i + 1) % len(vertiports_in_circle)]
-            self.network.add_link(current_vertiport, next_vertiport)
-        
-        return vertiports_in_circle
-    
     def update(self):
-        """Atualiza o estado da simulação sem criar novos objetos automaticamente"""
+        """Atualiza o estado da simulação"""
         # Timer da simulação para controle interno
         self._highlight_timer += 1
         
         # Atualiza apenas os estados dos objetos existentes
-        # Não cria novos objetos automaticamente
 
     def draw(self, surface):
         # Desenha a rede (vertiportos e suas conexões)
@@ -1668,10 +1489,10 @@ class Simulation:
 
 # --- Princípio da Inversão de Dependência (DIP): Simulador depende de abstrações ---
 class SimulatorUI:
-    def __init__(self, fps: bool = True):
+    def __init__(self, simulation: Optional['Simulation'] = None, fps: bool = True):
         self.title_window = "UAM Network Simulator"
         self.fps = fps
-        self.sim = Simulation()
+        self.sim = simulation  # Não cria simulação padrão
 
         pygame.init()
         self.clock = pygame.time.Clock()
@@ -1679,6 +1500,11 @@ class SimulatorUI:
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
     def run(self):
+        if self.sim is None:
+            print("❌ Erro: Nenhuma simulação foi configurada!")
+            print("💡 Use: SimulatorUI(simulation=sua_simulacao)")
+            return
+            
         running = True
         while running:
             self.clock.tick(FPS)
@@ -1695,52 +1521,32 @@ class SimulatorUI:
             self.screen.fill((30, 30, 30))
             self.sim.draw(self.screen)
 
-            # Atualiza apenas a simulação - sem criações automáticas
+            # Atualiza a simulação
             self.sim.update()
             pygame.display.flip()
 
         pygame.quit()
 
 if __name__ == "__main__":
-    print("🚀 UAM Network Simulator - Sistema de Cadastro JSON")
-    print("=" * 55)
+    print("🚀 UAM Network Simulator - Sistema JSON")
+    print("=" * 50)
     
-    # Exemplo 1: Simulação com rede automática (modo padrão)
-    print("\n📋 Exemplo 1: Modo Automático (Rede Circular)")
-    print("Criando simulação com rede circular padrão...")
-    
-    sim_auto = Simulation(num_vtols=4)
-    print("✅ Simulação automática criada!\n")
-    
-    # Exemplo 2: Simulação com configuração JSON personalizada
-    print("\n� Exemplo 2: Modo Personalizado (Configuração JSON)")
-    print("Carregando configuração de vertiportos e rotas de arquivos JSON...")
+    # Exemplo: Simulação com configuração JSON
+    print("\n📋 Carregando configuração de vertiportos e rotas dos arquivos JSON...")
     
     try:
-        sim_custom = Simulation(
-            num_vtols=0,  # Não cria VTOLs automáticos
+        sim = Simulation(
             vertiports_json="vertiports.json",
-            vtol_routes_json="vtol_routes.json",
-            auto_create_network=False
+            vtol_routes_json="vtol_routes.json"
         )
-        print("✅ Simulação personalizada criada!\n")
+        print("✅ Simulação criada com sucesso!\n")
         
-        # Exemplo 3: Demonstração da simulação visual
+        # Demonstração da simulação visual
         print("\n🎮 Iniciando Simulação Visual...")
-        print("Escolha qual simulação executar:")
-        print("1 - Simulação Automática (rede circular)")
-        print("2 - Simulação Personalizada (JSON)")
         
-        # Para demonstração, vamos usar a simulação personalizada
-        app = SimulatorUI()
-        app.sim = sim_custom  # Substitui a simulação padrão
-        
-        print("🚁 Executando simulação personalizada com rotas JSON...")
+        app = SimulatorUI(simulation=sim)
         app.run()
         
     except Exception as e:
-        print(f"⚠️ Erro ao carregar configuração JSON: {e}")
-        print("🔄 Executando simulação automática como fallback...")
-        
-        app = SimulatorUI()
-        app.run()
+        print(f"❌ Erro crítico: {e}")
+        print("� Verifique se os arquivos 'vertiports.json' e 'vtol_routes.json' existem no diretório /data")
