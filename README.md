@@ -1,77 +1,215 @@
-# UAM Network Simulator - Modern Architecture
+# 🚁 UAM Network Simulator
+
+**Simulador de Rede de Mobilidade Aérea Urbana (Urban Air Mobility)**
 
 ---
 
-## 🎯 **Status do Projeto: Versão 3.0 - Refatorado com DataFrame CSV + Pygame**
+## 🎯 **Objetivo do Projeto**
 
-✅ **Arquitetura moderna implementada**  
-✅ **Configuração via CSV DataFrame**: Entrada de dados via `matriz_od_info.csv` e `matriz_od_link.csv`  
-✅ **Controle robusto de capacidade dos vertiportos**  
-✅ **Sistema de hovering inteligente**  
-✅ **Organização limpa do código**  
-✅ **Visualização pygame**: Interface gráfica completa em tempo real  
-✅ **NetworkX**: Integração com NetworkX para roteamento avançado e análise de grafos  
-✅ **Links direcionais**: Suporte completo para redes direcionais e bidirecionais  
-✅ **Testes abrangentes**: Suite completa de testes organizados
-✅ **Sistema de passageiros**: Passageiros gerados com base em demanda temporal do CSV
-✅ **Embarque/desembarque automatizado**: Passageiros embarcam e desembarcam nos VTOLs automaticamente
-✅ **Animações visuais**: Passageiros sobem verticalmente e desaparecem ao sair dos vertiportos
+O UAM Network Simulator é um sistema avançado de simulação para **Mobilidade Aérea Urbana (UAM)** que permite modelar, visualizar e otimizar redes de transporte de eVTOLs (veículos elétricos de decolagem e pouso vertical) em ambientes urbanos.
+
+### **Finalidades Principais:**
+
+🔹 **Planejamento de Infraestrutura**: Otimizar localização e capacidade de vertiportos  
+🔹 **Análise de Demanda**: Simular padrões de tráfego baseados em dados temporais reais  
+🔹 **Otimização de Rotas**: Encontrar rotas eficientes usando algoritmos de grafos  
+🔹 **Gerenciamento de Capacidade**: Modelar filas, hovering e limitações operacionais  
+🔹 **Visualização em Tempo Real**: Interface gráfica para monitoramento e análise  
+🔹 **Validação de Conceitos**: Testar cenários UAM antes da implementação real  
+
+### **Casos de Uso:**
+
+- **Planejadores Urbanos**: Avaliar impacto de redes UAM na mobilidade urbana
+- **Empresas de eVTOL**: Testar operações e otimizar frotas
+- **Pesquisadores**: Estudar algoritmos de otimização e padrões de tráfego
+- **Autoridades Regulatórias**: Avaliar segurança e eficiência de propostas UAM
 
 ---
 
-## 🧠 **Objetivo do Simulador**
+## 🛣️ **Roadmap do Projeto**
 
-Simular a operação de uma rede de eVTOLs (Urban Air Mobility) com diferentes configurações de vertiportos e otimizar suas localizações, capacidades e desempenho operacional. O simulador implementa:
+### ✅ **Implementado (v3.0)**
 
-* ✅ **Configuração via CSV**: Vertiportos e links definidos em arquivos CSV com pandas DataFrame
-* ✅ **Controle de capacidade**: Vertiportos com capacidade limitada e fila de espera
-* ✅ **Sistema de hovering**: VTOLs pairam quando não há vaga e pousam automaticamente quando liberada
-* ✅ **Separação de responsabilidades**: Código de produção em `src/`, testes em `tests/`
-* ✅ **Visualização em tempo real**: Interface pygame completa para monitoramento gráfico
-* ✅ **Roteamento NetworkX**: Algoritmos avançados de grafos para encontrar rotas ótimas
-* ✅ **Links direcionais**: Suporte para redes unidirecionais e bidirecionais
-* ✅ **Demos interativas**: Scripts demonstrativos para diferentes funcionalidades
-* ✅ **Sistema de passageiros**: Passageiros gerados com base em demanda temporal do CSV
-* ✅ **Embarque/desembarque automatizado**: Passageiros embarcam e desembarcam nos VTOLs automaticamente
-* ✅ **Animações visuais**: Passageiros sobem verticalmente e desaparecem ao sair dos vertiportos
+#### **🏗️ Arquitetura e Infraestrutura**
+- [x] Arquitetura SOLID com separação clara de responsabilidades
+- [x] Sistema modular com `src/` (produção) e `tests/` (validação)
+- [x] Configuração via arquivos CSV para flexibilidade
+- [x] Integração NetworkX para algoritmos avançados de grafos
+
+#### **🌐 Rede e Conectividade**
+- [x] Rede de vertiportos configurável via CSV
+- [x] Suporte completo para links direcionais e bidirecionais  
+- [x] Algoritmos de pathfinding automático (caminho mais curto)
+- [x] Matriz de adjacência dinâmica para topologias complexas
+- [x] Validação de conectividade e análise de grafos
+
+#### **🚁 Sistema de eVTOLs**
+- [x] Estados bem definidos: `landed`, `taking_off`, `flying`, `landing`, `hovering`
+- [x] Rotas planejadas via JSON (circulares e ping-pong)
+- [x] Sistema de capacidade com filas de hovering inteligentes
+- [x] Anti-stuck mechanisms para evitar deadlocks
+- [x] Animações visuais baseadas em estados
+- [x] Embarque/desembarque automatizado de passageiros
+
+#### **👥 Sistema de Passageiros**
+- [x] Geração baseada em demanda temporal do CSV
+- [x] Estados visuais: `waiting`, `boarding`, `flying`, `arrived`, `leaving`
+- [x] Embarque automático baseado em compatibilidade de destinos
+- [x] Animações de entrada/saída nos vertiportos
+- [x] Capacidade limitada por eVTOL (máx. 4 passageiros)
+- [x] Sistema de filas nos vertiportos
+
+#### **🎮 Interface Visual (Pygame)**
+- [x] Simulação em tempo real com 60 FPS
+- [x] Visualização de vertiportos com indicadores de capacidade
+- [x] **Nomes dos vertiportos exibidos acima e à direita** ⭐ *Novo!*
+- [x] Animações suaves de movimento e transição
+- [x] Controles interativos (pausar, informações, rotas)
+- [x] Sistema de cores dinâmico baseado em estados
+- [x] Overlays informativos em tempo real
+
+#### **🧪 Sistema de Testes**
+- [x] Suite completa de testes unitários e integração
+- [x] Testes visuais e headless (sem interface)
+- [x] Validação de componentes pygame
+- [x] Testes de integração CSV e NetworkX
+- [x] Sistema unificado `main.py` para todos os demos
+
+### 🚧 **Em Desenvolvimento (v4.0)**
+
+#### **🔧 Otimização e Performance**
+- [ ] Algoritmos de otimização (K-median, genéticos)
+- [ ] Reinforcement Learning para rotas dinâmicas
+- [ ] Paralelização de simulações
+- [ ] Cache inteligente para cálculos repetitivos
+
+#### **📊 Analytics Avançados**
+- [ ] Dashboard web em tempo real
+- [ ] KPIs detalhados (tempo de viagem, throughput, eficiência)
+- [ ] Relatórios automáticos de performance
+- [ ] Análise de gargalos e otimização de capacidade
+
+#### **🌍 Funcionalidades Avançadas**
+- [ ] Integração com mapas reais (OpenStreetMap)
+- [ ] Simulação de condições climáticas
+- [ ] Modelagem de falhas de equipamentos
+- [ ] Múltiplos tipos de eVTOL com características diferentes
+
+### 💡 **Planejado (v5.0+)**
+
+#### **🤖 IA e Machine Learning**
+- [ ] Previsão de demanda com ML
+- [ ] Otimização automática de rotas
+- [ ] Detecção de padrões anômalos
+- [ ] Sistema de recomendações inteligente
+
+#### **🌐 Integração e APIs**
+- [ ] API REST para integração externa
+- [ ] Conectores para sistemas de gestão de tráfego aéreo
+- [ ] Interface para simuladores de voo
+- [ ] Integração com sistemas GIS profissionais
 
 ---
 
 ## 📁 **Estrutura do Projeto**
 
-```plaintext
-UAM-Network-Simulator-RL/
-├── src/                          # Código de produção
-│   ├── __init__.py
-│   ├── Modules/
-│   │   ├── __init__.py
-│   │   └── Simulation/
-│   │       ├── __init__.py
-│   │       └── engine.py         # Motor principal (CSV + pygame)
-│   └── data/                     # Dados CSV
-│       ├── matriz_od_info.csv    # Informações dos vertiportos
-│       ├── matriz_od_link.csv    # Matriz de adjacência direcional
-│       ├── demanda_passageiros.csv # Demanda temporal de passageiros
-│       └── vtol_routes.json      # Rotas históricas (compatibilidade)
-├── tests/                        # Testes organizados
-│   ├── README.md                 # Documentação dos testes
-│   ├── __init__.py
-│   ├── test_simulation.py        # Teste principal do engine
-│   ├── test_csv_integration.py   # Teste de integração CSV
-│   ├── test_pygame_components.py # Teste de componentes pygame
-│   └── test_pygame_headless.py   # Teste headless (sem display)
-├── demo_pygame_visualization.py  # Demo interativa completa
-├── demo_csv_routing.py           # Demo de roteamento CSV
-├── demo_vtol_routing.py          # Demo de rotas VTOL
-├── requirements.txt              # Dependências do projeto
-└── README.md                     # Esta documentação
 ```
+UAM-Network-Simulator-RL/
+├── 📂 src/                           # 🏭 Código de Produção
+│   ├── __init__.py
+│   ├── 📂 Modules/
+│   │   ├── __init__.py
+│   │   ├── 📂 Simulation/
+│   │   │   ├── __init__.py
+│   │   │   └── engine.py             # 🚀 Motor Principal da Simulação
+│   │   └── 📂 Optimization/          # 🔧 Módulos de Otimização (futuro)
+│   └── 📂 data/                      # 📊 Dados de Configuração
+│       ├── matriz_od_info.csv        # 🏢 Informações dos Vertiportos
+│       ├── matriz_od_link.csv        # 🔗 Matriz de Conectividade
+│       ├── demanda_passageiros.csv   # 👥 Demanda Temporal de Passageiros
+│       └── vtol_routes.json          # 🚁 Rotas Pré-definidas dos eVTOLs
+│
+├── 📂 tests/                         # 🧪 Sistema de Testes
+│   ├── __init__.py
+│   ├── README.md                     # 📖 Documentação dos Testes
+│   ├── test_simulation.py            # 🔬 Teste Principal do Motor
+│   ├── test_csv_integration.py       # 📊 Teste de Integração CSV
+│   ├── test_pygame_components.py     # 🎮 Teste de Componentes Visuais
+│   ├── test_pygame_headless.py       # 🖥️ Teste Headless (sem display)
+│   └── test_visual.py                # 👁️ Teste Visual Interativo
+│
+├── 📄 main.py                        # 🎯 Ponto de Entrada Principal
+├── 📄 requirements.txt               # 📦 Dependências Python
+├── 📄 README.md                      # 📚 Esta Documentação
+├── 📄 LICENSE                        # ⚖️ Licença MIT
+└── 📄 .gitignore                     # 🚫 Arquivos Ignorados pelo Git
+```
+
+### **🔍 Descrição dos Componentes Principais**
+
+| Arquivo/Pasta | Descrição | Responsabilidade |
+|---------------|-----------|------------------|
+| `src/Modules/Simulation/engine.py` | Motor principal da simulação | Classes VTOL, Vertiport, Network, Simulation, Person |
+| `src/data/` | Dados de configuração | CSVs de vertiportos, links, demanda e JSON de rotas |
+| `main.py` | Interface unificada | Menu principal com todas as funcionalidades |
+| `tests/` | Suite de testes | Validação de componentes e integração |
 
 ---
 
-## 🗂️ **Configuração de Dados**
+## 🚀 **Instalação e Configuração**
+
+### **1. Pré-requisitos**
+
+- **Python 3.8+** (recomendado 3.10+)
+- **Git** (para clonar o repositório)
+- **Sistema Operacional**: Windows, macOS ou Linux
+
+### **2. Clonar o Repositório**
+
+```bash
+git clone https://github.com/seu-usuario/UAM-Network-Simulator-RL.git
+cd UAM-Network-Simulator-RL
+```
+
+### **3. Instalar Dependências**
+
+```bash
+# Criar ambiente virtual (recomendado)
+python -m venv venv
+
+# Ativar ambiente virtual
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+source venv/bin/activate
+
+# Instalar dependências
+pip install -r requirements.txt
+```
+
+### **4. Verificar Instalação**
+
+```bash
+# Teste rápido
+python main.py
+```
+
+### **📦 Dependências Principais**
+
+| Biblioteca | Versão | Finalidade |
+|------------|--------|------------|
+| `pygame` | `>=2.0` | Interface gráfica e visualização |
+| `pandas` | `>=1.3` | Manipulação de dados CSV |
+| `networkx` | `>=2.6` | Algoritmos de grafos e roteamento |
+
+---
+
+## 📊 **Arquivos de Configuração**
 
 ### **1. `matriz_od_info.csv` - Informações dos Vertiportos**
+
+Define as características físicas e operacionais dos vertiportos:
+
 ```csv
 name;capacity;x;y;
 V1;2;200;150;
@@ -82,11 +220,14 @@ V5;2;600;550;
 ```
 
 **Campos:**
-- `name`: ID único do vertiport
-- `capacity`: Capacidade máxima de VTOLs simultâneos  
-- `x`, `y`: Coordenadas na tela para visualização
+- `name`: Identificador único do vertiporto
+- `capacity`: Número máximo de eVTOLs simultâneos
+- `x`, `y`: Coordenadas na tela (pixels)
 
-### **2. `matriz_od_link.csv` - Matriz de Links Direcionais**
+### **2. `matriz_od_link.csv` - Conectividade da Rede**
+
+Define as conexões direcionais entre vertiportos:
+
 ```csv
 X;V1;V2;V3;V4;V5
 V1;;x;x;;
@@ -96,346 +237,420 @@ V4;;;x;;x
 V5;;;x;;;
 ```
 
-**Como Interpretar:**
+**Interpretação:**
 - **Linhas = Origem**, **Colunas = Destino**
-- `x` = Link permitido nesta direção
-- Vazio = Sem link nesta direção
+- `x` = Conexão permitida nesta direção
+- Vazio = Sem conexão
 
-**Exemplo - Links do arquivo acima:**
-- V1 → V2: ✅ Permitido
-- V2 → V1: ✅ Permitido (bidirecional)
-- V1 → V3: ✅ Permitido  
-- V3 → V1: ❌ NÃO permitido (unidirecional)
-- V5 → V3: ✅ Permitido
-- V3 → V5: ❌ NÃO permitido (unidirecional)
-│   ├── test_simulation.py        # Teste principal do engine
-│   ├── test_csv_integration.py   # Integração CSV
-│   ├── test_pygame_components.py # Componentes pygame
-│   └── test_pygame_headless.py   # Testes visuais headless
-│   ├── test_*.py                 # Testes funcionais
-│   ├── demo_*.py                 # Demonstrações
-│   └── generate_od_data.py       # Utilitários
-├── fix_imports.py                # Script de correção de imports
-└── README.md                     # Este arquivo
-```
+**Exemplo:**
+- V1 → V2: ✅ (bidirecional com V2 → V1)
+- V1 → V3: ✅ (unidirecional, V3 ↛ V1)
 
----
+### **3. `demanda_passageiros.csv` - Demanda Temporal**
 
-## 👥 **Sistema de Passageiros**
-
-O simulador inclui um sistema completo de passageiros baseado em demanda temporal:
-
-### **Funcionalidades do Sistema de Passageiros**
-
-1. **Geração Baseada em Demanda**
-   - Passageiros são spawneados automaticamente com base no arquivo `demanda_passageiros.csv`
-   - A demanda varia por horário do dia (ex: maior demanda em horários de rush)
-   - Passageiros são gerados apenas dentro dos vertiportos (nunca fora)
-
-2. **Estados dos Passageiros**
-   - **waiting**: Aguardando no vertiporto de origem
-   - **boarding**: Embarcando no VTOL
-   - **flying**: Voando no VTOL para o destino
-   - **arrived**: Chegou ao destino
-   - **leaving**: Saindo do vertiporto (animação de subida)
-
-3. **Embarque e Desembarque Automatizado**
-   - VTOLs automaticamente embarcam passageiros ao decolar
-   - Apenas passageiros com destino correto embarcam
-   - Desembarque automático ao chegar no destino
-   - Capacidade limitada por VTOL (máximo 4 passageiros)
-
-4. **Animações Visuais**
-   - Passageiros são exibidos como círculos coloridos
-   - Cores diferentes para cada estado (vermelho=waiting, amarelo=boarding, etc.)
-   - Animação de saída: passageiros sobem verticalmente e desaparecem
-   - Contador visual de passageiros nos VTOLs
-
-### **Formato do CSV de Demanda**
+Define padrões de demanda de passageiros ao longo do dia:
 
 ```csv
-vertiport_origem,vertiport_destino,hora_inicio,hora_fim,demanda
-V1,V2,04:00,05:00,15
-V2,V3,07:00,09:00,25
-V3,V1,17:00,19:00,20
+intervalo,hora_inicio,hora_fim,vertiport_origem,vertiport_destino,demanda
+1,04:00,04:30,V3,V1,1
+2,04:30,05:00,V2,V5,1
+3,05:00,05:30,V1,V2,1
 ```
 
-### **Uso do Sistema de Passageiros**
+**Campos:**
+- `intervalo`: ID do intervalo temporal
+- `hora_inicio/fim`: Horário de início/fim da demanda
+- `vertiport_origem/destino`: Rota da demanda
+- `demanda`: Número de passageiros neste intervalo
 
+### **4. `vtol_routes.json` - Rotas dos eVTOLs**
+
+Define rotas pré-planejadas para eVTOLs:
+
+```json
+[
+  {
+    "vtol_id": "ALPHA-1",
+    "route": ["V1", "V2", "V4", "V5", "V1"]
+  },
+  {
+    "vtol_id": "BETA-2", 
+    "route": ["V3", "V1", "V2"]
+  }
+]
+```
+
+**Tipos de Rota:**
+- **Circular**: Primeiro = último elemento (ex: V1→V2→V4→V5→V1)
+- **Ping-Pong**: Vai e volta (ex: V3→V1→V2→V1→V3→...)
+
+---
+
+## 🏗️ **Arquitetura do Sistema**
+
+### **📐 Diagrama de Arquitetura**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   🎮 INTERFACE PYGAME                       │
+│               (Visualização e Controles)                    │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│                 🎯 SIMULATION                               │
+│              (Coordenação Central)                          │
+│  ┌─────────────┬─────────────┬─────────────┬─────────────┐  │
+│  │ 🌐 Network │ 👥 MatrizOD │  🚁 VTOLs  │  🏢 Vtpors  │  │
+│  └─────────────┴─────────────┴─────────────┴─────────────┘  │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────────────┐
+│                📊 DADOS E CONFIGURAÇÃO                      │
+│  ┌─────────────┬─────────────┬─────────────┬─────────────┐  │
+│  │    CSV      │    CSV      │    CSV      │    JSON     │  │
+│  │ Vertiportos │   Links     │  Demanda    │   Rotas     │  │
+│  └─────────────┴─────────────┴─────────────┴─────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### **🔧 Princípios SOLID Implementados**
+
+#### **Single Responsibility (SRP)**
 ```python
-from src.Modules.Simulation.engine import MatrizOD
-
-# Adicionar sistema de passageiros à simulação
-simulation.matriz_od = MatrizOD('src/data/demanda_passageiros.csv')
-simulation.matriz_od.current_time_minutes = 4 * 60  # Iniciar às 04:00
-
-# Spawnar passageiros baseado na demanda atual
-current_demands = simulation.matriz_od.get_current_demand()
-for demand in current_demands:
-    # Lógica de spawn implementada no demo_main.py
-    spawn_passengers_from_demand(simulation)
+class VTOL:        # Responsabilidade: Estado e movimento de um eVTOL
+class Vertiport:   # Responsabilidade: Operações de vertiporto
+class Network:     # Responsabilidade: Topologia e roteamento
+class Simulation:  # Responsabilidade: Coordenação da simulação
 ```
 
+#### **Open/Closed (OCP)**
+```python
+# Interfaces extensíveis
+class Drawable(ABC):     # Componentes visuais
+class Movable(ABC):      # Entidades móveis  
+class PathPlanner(ABC):  # Algoritmos de roteamento
+
+### **🔄 Fluxo de Dados**
+
+```
+📊 CSV/JSON Files
+        ↓
+📈 Pandas DataFrames  
+        ↓
+🌐 NetworkX Graph
+        ↓
+🎯 Simulation Engine
+        ↓
+🎮 Pygame Visualization
+```
+
+### **🧩 Componentes Principais**
+
+#### **1. Network (Rede)**
+- **Responsabilidade**: Gerencia topologia e conectividade
+- **Tecnologia**: NetworkX para algoritmos de grafos
+- **Funcionalidades**: Pathfinding, análise de conectividade, validação
+
+#### **2. VTOL (eVTOL)**
+- **Responsabilidade**: Comportamento individual dos veículos
+- **Estados**: `landed`, `taking_off`, `flying`, `landing`, `hovering`
+- **Funcionalidades**: Movimento, embarque/desembarque, anti-stuck
+
+#### **3. Vertiport (Vertiporto)**
+- **Responsabilidade**: Operações de infraestrutura
+- **Funcionalidades**: Controle de capacidade, filas, pouso/decolagem
+
+#### **4. Person (Passageiro)**
+- **Responsabilidade**: Comportamento de passageiros
+- **Estados**: `waiting`, `boarding`, `flying`, `arrived`, `leaving`
+- **Funcionalidades**: Animações, embarque automático
+
+#### **5. MatrizOD (Demanda)**
+- **Responsabilidade**: Gerenciamento de demanda temporal
+- **Funcionalidades**: Parsing de CSV, cálculo de demanda atual
+
 ---
 
-## 🏗️ **Arquitetura SOLID Implementada**
+## 🎮 **Como Usar o Simulador**
 
-O simulador agora segue rigorosamente os princípios SOLID:
-
-### **Single Responsibility Principle (SRP)**
-- `VTOL`: Gerencia apenas estado e movimento de um VTOL
-- `Vertiport`: Controla apenas capacidade e operações de pouso/decolagem  
-- `Network`: Administra apenas a topologia da rede
-- `Simulation`: Coordena apenas a simulação geral
-
-### **Open/Closed Principle (OCP)**
-- Interfaces `Drawable`, `Movable`, `Stateful`, `Cleanable`
-- Sistema extensível via composição e polimorfismo
-
-### **Liskov Substitution Principle (LSP)**
-- Todas as implementações respeitam os contratos das interfaces
-- Substituição transparente de componentes
-
-### **Interface Segregation Principle (ISP)**
-- Interfaces específicas e focadas: `PathPlanner`, `NetworkManager`
-- Clientes dependem apenas do que precisam
-
-### **Dependency Inversion Principle (DIP)**
-- Simulação depende de abstrações, não implementações
-- Inversão de controle via injeção de dependência
-
-```plaintext
-┌─────────────────────────────────┐
-│         Simulation              │◄── Coordenação geral
-├─────────────────────────────────┤
-│  ┌─────────┐ ┌──────────────┐   │
-│  │ Network │ │ MatrizOD     │   │◄── Componentes especializados  
-│  └─────────┘ └──────────────┘   │
-├─────────────────────────────────┤
-│  ┌─────────┐ ┌──────────────┐   │
-│  │  VTOL   │ │  Vertiport   │   │◄── Entidades do domínio
----
-
-## 🚀 **Como Usar**
-
-### **Instalação e Requisitos**
+### **🚀 Execução Principal**
 
 ```bash
-# Instalar dependências
-pip install -r requirements.txt
-
-# Requisitos principais:
-# - pygame (interface gráfica)
-# - pandas (manipulação de dados CSV)
-# - networkx (algoritmos de grafos)
+python main.py
 ```
 
-### **Execução Básica**
+**Menu de Opções:**
+1. **🎮 Simulação Completa (Visual)** - Interface gráfica completa
+2. **🧪 Teste de Passageiros** - Validação do sistema de passageiros  
+3. **📊 Ambos** - Teste + Simulação
+4. **❌ Sair**
 
+### **🎮 Controles da Simulação**
+
+| Tecla | Ação | Descrição |
+|-------|------|-----------|
+| `SPACE` | Pausar/Retomar | Pausa a simulação para análise |
+| `I` | Informações | Alterna overlay de informações |
+| `R` | Rotas | Exibe/oculta rotas dos eVTOLs |
+| `P` | Passageiros | Alterna visualização de passageiros |
+| `T` | Teste | Executa teste de passageiros |
+| `S` | Reiniciar | Reinicia rotas JSON |
+| `ESC` | Sair | Encerra a simulação |
+
+### **📊 Informações em Tempo Real**
+
+Durante a simulação, o sistema exibe:
+
+- ⏰ **Tempo atual** da simulação
+- 📈 **Contagem de eVTOLs** por estado (voando, pousados, etc.)
+- 🏢 **Ocupação dos vertiportos** com indicadores visuais
+- 👥 **Demanda atual** de passageiros
+- 🚁 **Filas de hovering** quando vertiportos estão cheios
+
+---
+
+## 🔍 **Como a Simulação Funciona**
+
+### **🎯 Fluxo Principal da Simulação**
+
+#### **1. Inicialização**
 ```python
-import pygame
-import pandas as pd
-from src.Modules.Simulation.engine import Simulation
+# 1. Carregamento de dados
+vertiports_df = pd.read_csv('matriz_od_info.csv', sep=';')
+links_df = pd.read_csv('matriz_od_link.csv', sep=';')
+demand_data = MatrizOD('demanda_passageiros.csv')
 
-# Carregar dados CSV
-vertiports_df = pd.read_csv('src/data/matriz_od_info.csv', sep=';')
-links_df = pd.read_csv('src/data/matriz_od_link.csv', sep=';')
+# 2. Criação da rede
+network = Network(vertiports_df, links_df)
 
-# Criar simulação
-simulation = Simulation(vertiports_df, links_df)
-
-# Adicionar VTOLs
-simulation.add_vtol(1, "V1", "V5", 0, 1)  # id, origem, destino, start_time, speed
-
-# Executar simulação (modo headless)
-for step in range(100):
-    simulation.simulate_step()
-    print(f"Step {step}: {len(simulation.vtols)} VTOLs ativos")
+# 3. Spawn de eVTOLs
+vtols = create_vtols_from_json('vtol_routes.json')
 ```
 
-### **Execução com Visualização Pygame**
-
+#### **2. Loop Principal (60 FPS)**
 ```python
-import pygame
-from src.Modules.Simulation.engine import Simulation
-
-# Inicializar pygame
-pygame.init()
-screen = pygame.display.set_mode((1000, 800))
-pygame.display.set_caption("UAM Network Simulator")
-
-# Carregar dados e criar simulação
-vertiports_df = pd.read_csv('src/data/matriz_od_info.csv', sep=';')
-links_df = pd.read_csv('src/data/matriz_od_link.csv', sep=';')
-simulation = Simulation(vertiports_df, links_df)
-
-# Adicionar VTOLs
-simulation.add_vtol(1, "V1", "V5", 0, 1)
-
-# Loop principal
-running = True
-clock = pygame.time.Clock()
-
 while running:
-    # Eventos pygame
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_SPACE:
-                simulation.paused = not simulation.paused
-            elif event.key == pygame.K_ESCAPE:
-                running = False
+    # 1. Atualizar estados dos eVTOLs
+    for vtol in vtols:
+        vtol.update()  # Estado, movimento, embarque/desembarque
     
-    # Atualizar simulação
-    if not simulation.paused:
-        simulation.simulate_step()
-    
-    # Renderizar
-    screen.fill((40, 40, 60))
-    simulation.network.draw(screen)
-    
-    for vtol in simulation.vtols:
-        vtol.draw(screen)
-    
-    pygame.display.flip()
-    clock.tick(60)
-
-pygame.quit()
-```
-
-### **Execução Principal**
-
-Execute o simulador principal unificado:
-
-```bash
-# Simulador principal com menu interativo
-python main.py
-```
-
-**Opções do Menu:**
-1. **🎮 Simulação Completa (Visual)**: Interface pygame completa com todas as funcionalidades
-2. **🧪 Teste de Passageiros**: Validação automática do sistema de embarque/desembarque  
-3. **📊 Ambos**: Executa teste seguido da simulação visual
-4. **❌ Sair**: Encerra o programa
-
-**Funcionalidades da Simulação Visual:**
-- VTOLs com rotas planejadas do JSON (circulares e ping-pong)
-- VTOLs de simulação tradicional (ponto-a-ponto)
-- Sistema de passageiros baseado em demanda temporal
-- Embarque/desembarque automatizado de passageiros
-- Visualização em tempo real com informações detalhadas
-- Controles interativos:
-  - **SPACE**: Pausar/Retomar simulação
-  - **I**: Alternar exibição de informações
-  - **R**: Alternar exibição de rotas
-  - **P**: Alternar exibição de passageiros
-  - **T**: Executar teste de passageiros em tempo real
-  - **S**: Reiniciar rotas planejadas
-  - **ESC**: Sair
-
-**Outros Arquivos de Execução:**
-```bash
-# Simulador principal unificado (RECOMENDADO)
-python main.py
-
-# Demo visual alternativo
-python visual_demo.py
-
-# Teste de timing da simulação
-python test_timing.py
-```
-
----
-
-## 👥 **Sistema de Passageiros**
-
-O simulador inclui um sistema completo de passageiros baseado em demanda temporal:
-
-### **Funcionalidades do Sistema de Passageiros**
-
-1. **Geração Baseada em Demanda**
-   - Passageiros são spawneados automaticamente com base no arquivo `demanda_passageiros.csv`
-   - A demanda varia por horário do dia (ex: maior demanda em horários de rush)
-   - Passageiros são gerados apenas dentro dos vertiportos (nunca fora)
-
-2. **Estados dos Passageiros**
-   - **waiting**: Aguardando no vertiporto de origem
-   - **boarding**: Embarcando no VTOL
-   - **flying**: Voando no VTOL para o destino
-   - **arrived**: Chegou ao destino
-   - **leaving**: Saindo do vertiporto (animação de subida)
-
-3. **Embarque e Desembarque Automatizado**
-   - VTOLs automaticamente embarcam passageiros ao decolar
-   - Apenas passageiros com destino correto embarcam
-   - Desembarque automático ao chegar no destino
-   - Capacidade limitada por VTOL (máximo 4 passageiros)
-
-4. **Animações Visuais**
-   - Passageiros são exibidos como círculos coloridos
-   - Cores diferentes para cada estado (vermelho=waiting, amarelo=boarding, etc.)
-   - Animação de saída: passageiros sobem verticalmente e desaparecem
-   - Contador visual de passageiros nos VTOLs
-
-### **Formato do CSV de Demanda**
-
-```csv
-vertiport_origem,vertiport_destino,hora_inicio,hora_fim,demanda
-V1,V2,04:00,05:00,15
-V2,V3,07:00,09:00,25
-V3,V1,17:00,19:00,20
-```
-
-### **Uso do Sistema de Passageiros**
-
-```python
-from src.Modules.Simulation.engine import MatrizOD
-
-# Adicionar sistema de passageiros à simulação
-simulation.matriz_od = MatrizOD('src/data/demanda_passageiros.csv')
-simulation.matriz_od.current_time_minutes = 4 * 60  # Iniciar às 04:00
-
-# Spawnar passageiros baseado na demanda atual
-current_demands = simulation.matriz_od.get_current_demand()
-for demand in current_demands:
-    # Lógica de spawn implementada no demo_main.py
+    # 2. Spawnar passageiros baseado em demanda
     spawn_passengers_from_demand(simulation)
+    
+    # 3. Renderizar tudo
+    draw_network(screen)
+    draw_vtols(screen)
+    draw_passengers(screen)
+    
+    # 4. Processar eventos
+    handle_input_events()
+```
+
+### **🚁 Sistema de eVTOLs**
+
+#### **Estados e Transições**
+```
+    LANDED ──────► TAKING_OFF ──────► FLYING
+       ▲                                │
+       │                                ▼
+   HOVERING ◄──────── LANDING ◄──── IN_TRANSIT
+```
+
+#### **Lógica de Movimento**
+1. **Pathfinding**: NetworkX calcula rota mais curta
+2. **Movimento**: Interpolação linear entre pontos
+3. **Capacidade**: Verifica disponibilidade no destino
+4. **Hovering**: Aguarda em fila se vertiporto cheio
+
+#### **Anti-Stuck Mechanisms**
+```python
+# Forçar decolagem se ficou muito tempo pousado
+if landed_timer > max_landed_time:
+    force_takeoff()
+
+# Abortar hovering se ficou muito tempo esperando  
+if hover_count > max_hover_count:
+    find_alternative_destination()
+```
+
+### **👥 Sistema de Passageiros**
+
+#### **Geração Baseada em Demanda**
+```python
+def spawn_passengers_from_demand():
+    current_demands = demand_system.get_current_demand()
+    for demand in current_demands:
+        origem = demand['origem']
+        destino = demand['destino'] 
+        quantidade = demand['demanda']
+        
+        # Spawnar com probabilidade baseada na demanda
+        for _ in range(quantidade):
+            if random.random() < spawn_probability:
+                passenger = Person(origem, destino)
+                origem_vertiport.add_passenger(passenger)
+```
+
+#### **Embarque Automático**
+```python
+def _board_passengers(vtol):
+    dest_name = vtol.destination_vertiport.name
+    available_seats = vtol.max_passengers - len(vtol.onboard_passengers)
+    
+    # Buscar passageiros com destino compatível
+    passengers = vertiport.get_passengers_for_destination(dest_name, available_seats)
+    
+    for passenger in passengers:
+        passenger.board_vtol(vtol)
+        vtol.onboard_passengers.append(passenger)
+```
+
+### **🏢 Sistema de Vertiportos**
+
+#### **Controle de Capacidade**
+```python
+def request_landing(vtol):
+    if len(occupied_slots) < capacity:
+        return True  # Pouso aprovado
+    else:
+        hovering_queue.append(vtol)  # Adicionar à fila
+        return False
+```
+
+#### **Liberação de Vagas**
+```python
+def takeoff_vtol(vtol):
+    occupied_slots.remove(vtol)
+    
+    # Notificar eVTOLs em hovering
+    for hovering_vtol in hovering_queue:
+        hovering_vtol.can_attempt_landing = True
+```
+
+### **🎨 Sistema Visual**
+
+#### **Renderização em Camadas**
+1. **Fundo**: Rede de conexões
+2. **Vertiportos**: Retângulos com indicadores
+3. **📍 Nomes dos vertiportos** (acima e à direita) ⭐
+4. **eVTOLs**: Círculos coloridos por estado
+5. **Passageiros**: Pontos pequenos nos vertiportos
+6. **Interface**: Informações e controles
+
+#### **Sistema de Cores**
+```python
+COLORS = {
+    'landed': (80, 150, 200),      # Azul
+    'flying': (100, 200, 255),     # Azul claro
+    'hovering': (255, 255, 100),   # Amarelo
+    'taking_off': (120, 180, 255), # Azul médio
+    'landing': (120, 180, 255)     # Azul médio
+}
+```
+
+### **🔄 Algoritmos de Roteamento**
+
+#### **NetworkX Pathfinding**
+```python
+def find_route(origin, destination):
+    try:
+        # Algoritmo de caminho mais curto
+        path = nx.shortest_path(graph, origin, destination)
+        return path
+    except nx.NetworkXNoPath:
+        # Sem rota disponível
+        return None
+```
+
+#### **Rotas Circulares**
+```python
+def get_next_destination_circular():
+    current_index = route.index(current_vertiport)
+    next_index = (current_index + 1) % len(route)
+    return route[next_index]
+```
+
+#### **Rotas Ping-Pong**
+```python
+def get_next_destination_pingpong():
+    if not reverse_direction:
+        next_index = current_index + 1
+        if next_index >= len(route):
+            reverse_direction = True
+            next_index = current_index - 1
+    else:
+        next_index = current_index - 1
+        if next_index < 0:
+            reverse_direction = False
+            next_index = current_index + 1
+    return route[next_index]
 ```
 
 ---
 
-## 🎮 **Funcionalidades Pygame**
+## 🧪 **Sistema de Testes**
 
-### **Componentes Visuais**
+### **Tipos de Teste**
 
-1. **Rede de Vertiportos**
-   - Vertiportos exibidos como retângulos com indicadores de capacidade
-   - Links direcionais com setas mostrando conectividade
-   - Distinção visual entre links bidirecionais e unidirecionais
-   - Destaque de rotas para visualização de caminhos
+| Arquivo | Tipo | Descrição |
+|---------|------|-----------|
+| `test_simulation.py` | Integração | Teste completo do motor |
+| `test_csv_integration.py` | Unitário | Carregamento de dados |
+| `test_pygame_components.py` | Unitário | Componentes visuais |
+| `test_pygame_headless.py` | Sistema | Teste sem interface |
+| `test_visual.py` | Manual | Teste visual interativo |
 
-2. **Animação de VTOLs**
-   - Movimento em tempo real entre vertiportos
-   - Representação visual baseada no estado:
-     - `landed`: Aeronave azul no vertiport
-     - `taking_off`: Animação de escala com efeitos de decolagem
-     - `flying`: Aeronave em movimento com animações de rotor
-     - `landing`: Sequência de pouso com indicadores
-     - `hovering`: Efeitos amarelos de pairar quando aguardando pouso
-   - Contador de passageiros exibido acima de cada VTOL
+### **Execução dos Testes**
 
-3. **Passageiros**
-   - Círculos coloridos representando passageiros nos vertiportos
-   - Animação de movimento e estado visual
-   - Contador de passageiros por estado no overlay de informações
+```bash
+# Teste individual
+python tests/test_simulation.py
 
-4. **Gerenciamento de Vertiportos**
-   - Indicadores de ocupação em tempo real
-   - Visualização de gerenciamento de capacidade
-   - Exibição de fila de pairar para vertiportos ocupados
+# Todos os testes
+python -m pytest tests/
 
-### **Controles Interativos**
+# Teste visual
+python tests/test_visual.py
+```
+
+---
+
+## 📈 **Próximos Passos**
+
+### **Contribuições Bem-vindas**
+
+🔹 **Algoritmos de Otimização**: K-median, algoritmos genéticos, RL  
+🔹 **Analytics**: Dashboard web, métricas avançadas  
+🔹 **Realismo**: Integração com mapas reais, condições climáticas  
+🔹 **Performance**: Paralelização, otimizações de rendering  
+
+### **Como Contribuir**
+
+1. Fork do repositório
+2. Criar branch para feature (`git checkout -b feature/nova-funcionalidade`)
+3. Commit das mudanças (`git commit -m 'Adiciona nova funcionalidade'`)
+4. Push para branch (`git push origin feature/nova-funcionalidade`)
+5. Criar Pull Request
+
+---
+
+## 📄 **Licença**
+
+Este projeto está licenciado sob a **Licença MIT**. Veja o arquivo `LICENSE` para detalhes.
+
+---
+
+## 👥 **Créditos e Contato**
+
+**Desenvolvido por**: [Seu Nome]  
+**Versão**: 3.0  
+**Última Atualização**: Junho 2025  
+
+Para dúvidas, sugestões ou colaborações, entre em contato através dos issues do GitHub.
+
+---
+
+**🚁 UAM Network Simulator - Modelando o futuro da mobilidade aérea urbana!**
 
 - **SPACE**: Pausar/Retomar simulação
 - **I**: Alternar exibição de informações
@@ -483,42 +698,11 @@ for demand in current_demands:
 - Entrada de dados via pandas DataFrame (CSV)
 - NetworkX para algoritmos avançados de grafos
 - Código autodocumentado e manutenível
-- Gestão de memória com cleanup automático
 
 ### **✅ Sistema de Passageiros**
 - Geração de passageiros com base em demanda temporal do CSV
 - Embarque e desembarque automatizados nos VTOLs
 - Animações visuais de passageiros subindo e descendo verticalmente
-
----
-
-## 🧪 **Testes Disponíveis**
-
-O projeto inclui uma suíte abrangente de testes organizados em `tests/`:
-
-### **Testes Principais**
-- `test_simulation.py` - Teste completo do motor de simulação
-- `test_csv_integration.py` - Integração com dados CSV
-- `test_pygame_components.py` - Componentes da interface pygame
-- `test_pygame_headless.py` - Teste headless (sem display)
-
-### **Demos e Testes**  
-- `demo_main.py` - Demo principal unificado com todas as funcionalidades
-- `visual_demo.py` - Demonstração visual básica
-- `test_timing.py` - Teste de desempenho e timing
-
-```bash
-# Executar todos os testes
-python -m pytest tests/
-
-# Executar teste específico
-python tests/test_simulation.py
-
-# Executar demo interativo
-python demo_pygame_visualization.py
-```
-
-Consulte `tests/README.md` para instruções detalhadas sobre os testes.
 
 ---
 
@@ -535,19 +719,12 @@ Consulte `tests/README.md` para instruções detalhadas sobre os testes.
 pip install -r requirements.txt
 ```
 
-### **Arquivos de Dados Obrigatórios**
-- `src/data/matriz_od_info.csv` - Informações dos vertiportos
-- `src/data/matriz_od_link.csv` - Matriz de conectividade direcional
-
----
-
 ## 📌 **Próximas Extensões**
 
 ### **Módulos Futuros**
 - **Optimization Module**: Algoritmos de otimização (K-median, genéticos, RL)
 - **Demand Generator**: Geração dinâmica de demanda com variações temporais
 - **Metrics Engine**: KPIs detalhados (tempo de viagem, eficiência, throughput)
-- **3D Visualization**: Simulação com altitude e congestionamento vertical
 - **Real-time Analytics**: Dashboard com métricas em tempo real
 
 ### **Integrações Planejadas**
@@ -555,37 +732,10 @@ pip install -r requirements.txt
 - Simulação de condições climáticas e falhas
 - Interface web (Flask/FastAPI) para controle remoto
 - Machine Learning para otimização dinâmica de rotas
-- APIs para integração com sistemas externos
 
-### **Melhorias de Engenharia**
-- Logging estruturado com diferentes níveis
-- Configuração via arquivo YAML/TOML
-- Containerização com Docker
-- Pipeline CI/CD automatizado
-- Documentação automática (Sphinx)
-- Profiling e otimização de performance
-
----
-
-## 🏆 **Conquistas da Refatoração**
-
-✅ **Migração completa para CSV DataFrame**: Substituição do JSON por pandas para maior flexibilidade  
-✅ **Interface pygame restaurada**: Visualização completa e interativa funcionando  
-✅ **Arquitetura NetworkX**: Roteamento avançado com algoritmos de grafos  
-✅ **Suporte a links direcionais**: Redes unidirecionais e bidirecionais  
-✅ **Organização limpa do código**: Estrutura `src/` e `tests/` bem definida  
-✅ **Sistema robusto de capacidade**: Hovering e gestão de filas implementados  
-✅ **Testes abrangentes**: Suite completa validando todas as funcionalidades  
-✅ **Documentação consolidada**: README unificado com toda informação relevante
-
-O projeto agora está em uma arquitetura moderna e extensível, pronto para futuras expansões mantendo alta qualidade de código e facilidade de manutenção.
-
----
 
 ## 📄 **Licença**
 
 Este projeto está licenciado sob a licença MIT. Veja o arquivo `LICENSE` para mais detalhes.
 
 ---
-
-**UAM Network Simulator** - Simulação avançada de redes de mobilidade aérea urbana com visualização em tempo real e análise de grafos.

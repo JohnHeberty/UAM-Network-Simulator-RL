@@ -124,7 +124,6 @@ Cada teste valida:
 2. **Criação de Rede**: NetworkX graph construction
 3. **Lógica de Simulação**: Estados e transições de VTOLs
 4. **Renderização Visual**: Componentes pygame funcionais
-5. **Performance**: Execução sem erros e vazamentos de memória
 
 ## 🐛 **Debugging**
 
