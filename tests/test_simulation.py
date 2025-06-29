@@ -16,10 +16,11 @@ sys.path.insert(0, project_root)
 from src.Modules.Simulation.engine import Simulation, Network, VTOL, Vertiport
 
 
-def test_engine():
+def test_engine(headless=True):
     """Test all engine components."""
     print("UAM Network Simulator - Engine Test")
     print("=" * 40)
+    print(f"Mode: {'Headless' if headless else 'Visual'}")
     
     # Test 1: Data Loading
     print("\n1. Testing CSV Data Loading...")
@@ -82,11 +83,19 @@ def test_engine():
     
     # Test 4: Pygame Components
     print("\n4. Testing Pygame Components...")
-    os.environ['SDL_VIDEODRIVER'] = 'dummy'
+    
+    # Only use dummy driver in headless mode
+    if headless:
+        os.environ['SDL_VIDEODRIVER'] = 'dummy'
     
     try:
         pygame.init()
-        screen = pygame.Surface((800, 600))
+        
+        if headless:
+            screen = pygame.Surface((800, 600))
+        else:
+            screen = pygame.display.set_mode((800, 600))
+            pygame.display.set_caption("UAM Test - Pygame Components")
         
         vertiport = Vertiport(100, 100, capacity=2, name="Test_VP")
         vertiport.draw(screen)
@@ -95,6 +104,10 @@ def test_engine():
         vtol = VTOL(150, 150, network)
         vtol.draw(screen)
         print(f"✓ VTOL created in state '{vtol.state}'")
+        
+        if not headless:
+            pygame.display.flip()
+            pygame.time.wait(1000)  # Show for 1 second
         
         pygame.quit()
         print("✓ Pygame components working")
@@ -106,7 +119,14 @@ def test_engine():
     print("\n5. Testing Visual Simulation...")
     try:
         pygame.init()
-        screen = pygame.Surface((1000, 800))
+        
+        if headless:
+            screen = pygame.Surface((1000, 800))
+            clock = None
+        else:
+            screen = pygame.display.set_mode((1000, 800))
+            pygame.display.set_caption("UAM Test - Visual Simulation")
+            clock = pygame.time.Clock()
         
         simulation = Simulation(vertiports_df, links_df)
         simulation.add_vtol(1, vertiports[0], vertiports[1], 0, 1)
@@ -114,7 +134,16 @@ def test_engine():
         print(f"✓ Created visual simulation with {len(simulation.vtols)} VTOLs")
         
         # Run visual frames
-        for frame in range(20):
+        for frame in range(60 if not headless else 20):
+            # Handle events in visual mode
+            if not headless:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        break
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            break
+            
             simulation.simulate_step()
             screen.fill((40, 40, 60))
             simulation.network.draw(screen)
@@ -122,7 +151,12 @@ def test_engine():
             for vtol in simulation.vtols:
                 vtol.draw(screen)
             
-            if frame % 5 == 0:
+            if not headless:
+                pygame.display.flip()
+                if clock:
+                    clock.tick(10)  # 10 FPS for testing
+            
+            if frame % 10 == 0:
                 states = {}
                 for vtol in simulation.vtols:
                     state = vtol.state if hasattr(vtol, 'state') else vtol.status
@@ -142,7 +176,14 @@ def main():
     """Main function."""
     print("Starting comprehensive engine test...\n")
     
-    success = test_engine()
+    # Ask user for test mode
+    try:
+        mode_choice = input("Run test with visual interface? (Y/n): ").strip().lower()
+        headless = mode_choice in ['n', 'no']
+    except:
+        headless = False  # Default to visual mode
+    
+    success = test_engine(headless)
     
     if success:
         print("\n" + "=" * 40)
@@ -156,14 +197,20 @@ def main():
         print("\nEngine is fully functional with pygame support!")
         
         # Offer interactive demo
-        try:
-            choice = input("\nRun interactive demo? (y/N): ").strip().lower()
-            if choice in ['y', 'yes']:
-                print("Starting demo... (SPACE=pause, I=info, ESC=exit)")
-                import demo_pygame_visualization
-                demo_pygame_visualization.main()
-        except:
-            pass
+        if not headless:
+            try:
+                choice = input("\nRun full interactive demo? (Y/n): ").strip().lower()
+                if choice not in ['n', 'no']:
+                    print("Starting demo... (SPACE=pause, I=info, ESC=exit)")
+                    # Import and run demo from demo directory
+                    demo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'demo')
+                    sys.path.insert(0, demo_path)
+                    import demo_pygame_visualization
+                    demo_pygame_visualization.main()
+            except Exception as e:
+                print(f"Demo failed: {e}")
+        else:
+            print("\nFor visual testing, run: python tests/test_visual.py")
     else:
         print("\n❌ Some tests failed.")
     

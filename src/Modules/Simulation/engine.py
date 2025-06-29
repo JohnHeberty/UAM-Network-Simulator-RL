@@ -1,5 +1,7 @@
 """
-UAM Network Simulator - Clean Engine Implementation with CSV DataFrame Support and Pygame Visualization
+Simulation engine for UAM Network Simulator
+
+Motor principal da simulação implementando arquitetura SOLID.
 """
 
 import pandas as pd
@@ -9,6 +11,7 @@ import math
 import pygame
 import sys
 import os
+import json
 from abc import ABC, abstractmethod
 
 # Visual Constants
@@ -82,15 +85,19 @@ class VTOL(Drawable):
         self.state = "landed"
         self.state_timer = 0
         
-        # Circulation properties
+        # Circulation properties - Enhanced for JSON routes
         self.is_circulating = False
         self.vtol_id = "VTOL"
-        self.custom_route = []
+        self.planned_route = []  # The planned route from JSON
         self.current_route_index = 0
-        self.loop_route = True
+        self.is_circular_route = False  # True if first == last vertiport
+        self.reverse_direction = False  # For non-circular routes (ping-pong)
         self.vertiports_map = {}
         self._next_destination = None
-        self.reverse_route = False  # For round trips
+        
+        # Journey properties for simulation compatibility
+        self.final_destination = None
+        self.journey_route = []  # Current leg of the journey (A->B pathfinding)
         
         # Animation
         self.base_width = VTOL_DRAW_SIZE
@@ -129,37 +136,44 @@ class VTOL(Drawable):
         if not self.network or not self.current_vertiport:
             return False
         
-        if hasattr(self, 'custom_route') and self.custom_route:
-            return self._set_next_custom_route_destination()
+        if hasattr(self, 'planned_route') and self.planned_route:
+            return self._set_next_planned_route_destination()
         
         return self._set_next_circular_destination()
     
-    def _set_next_custom_route_destination(self):
-        """Define next destination based on custom route."""
-        if not self.custom_route or len(self.custom_route) < 2:
+    def _set_next_planned_route_destination(self):
+        """Define next destination based on planned route from JSON."""
+        if not self.planned_route or len(self.planned_route) < 2:
             return False
 
-        is_circular = self.custom_route[0] == self.custom_route[-1]
+        # Check if route is circular (first == last)
+        self.is_circular_route = self.planned_route[0] == self.planned_route[-1]
 
-        if is_circular:
-            next_index = (self.current_route_index + 1) % len(self.custom_route)
+        if self.is_circular_route:
+            # Circular route: just move to next index, wrapping around
+            next_index = (self.current_route_index + 1) % len(self.planned_route)
         else:
-            if not self.reverse_route:
+            # Non-circular route: ping-pong behavior
+            if not self.reverse_direction:
+                # Going forward
                 next_index = self.current_route_index + 1
-                if next_index >= len(self.custom_route):
-                    self.reverse_route = True
+                if next_index >= len(self.planned_route):
+                    # Reached end, start going backwards
+                    self.reverse_direction = True
                     next_index = self.current_route_index - 1
             else:
+                # Going backwards
                 next_index = self.current_route_index - 1
                 if next_index < 0:
-                    self.reverse_route = False
+                    # Reached beginning, start going forward again
+                    self.reverse_direction = False
                     next_index = self.current_route_index + 1
 
-        if next_index < 0 or next_index >= len(self.custom_route):
-            self.is_circulating = False
+        # Validate index
+        if next_index < 0 or next_index >= len(self.planned_route):
             return False
 
-        next_vp_id = self.custom_route[next_index]
+        next_vp_id = self.planned_route[next_index]
         if hasattr(self, 'vertiports_map') and next_vp_id in self.vertiports_map:
             next_vertiport = self.vertiports_map[next_vp_id]
             self.state_timer = 15
@@ -390,8 +404,8 @@ class VTOL(Drawable):
                     delattr(self, '_next_destination')
                     
                     if self.set_destination_vertiport(next_dest):
-                        if hasattr(self, 'custom_route') and self.custom_route:
-                            for i, vp_id in enumerate(self.custom_route):
+                        if hasattr(self, 'planned_route') and self.planned_route:
+                            for i, vp_id in enumerate(self.planned_route):
                                 if (hasattr(self, 'vertiports_map') and 
                                     vp_id in self.vertiports_map and 
                                     self.vertiports_map[vp_id] == next_dest):
@@ -399,18 +413,23 @@ class VTOL(Drawable):
                                     break
                 else:
                     self._set_next_circulation_destination()
+            elif (hasattr(self, 'planned_route') and self.planned_route and 
+                  self.is_circulating and self.state_timer <= 0):
+                # For planned route VTOLs, automatically continue to next destination
+                if self.advance_to_next_planned_destination():
+                    self.status = "FLYING"
         
         elif self.state in ["flying", "in_transit"]:
             self._update_movement()
         
         self._update_scale_animation()
         
-        # Update status for simulation compatibility
+        # Update status for simulation compatibility - preserve manual status changes
         if self.state == "landed":
             self.status = "LANDED"
         elif self.state in ["flying", "in_transit", "taking_off", "landing"]:
             self.status = "FLYING"
-        else:
+        elif self.status not in ["FLYING", "LANDED"]:  # Only change to WAITING if not manually set
             self.status = "WAITING"
     
     def get_current_color(self):
@@ -474,28 +493,41 @@ class VTOL(Drawable):
         if self.status != "WAITING":
             return False
         
-        # Check if there's capacity at current vertiport
-        current_capacity = vertiport_capacity.get(str(self.current_vertiport), 0)
-        return current_capacity > 0
+        # VTOL can always depart if it's waiting and time is reached
+        return True
     
     def fly_to_next_vertiport(self, next_vertiport: str):
         """Move VTOL to next vertiport in route."""
         # Find vertiport object by name/id
         target_vertiport = None
-        if hasattr(self.network, 'nodes'):
+        if self.network and hasattr(self.network, 'nodes'):
             for vp in self.network.nodes:
                 if str(vp) == next_vertiport or (hasattr(vp, 'name') and vp.name == next_vertiport):
                     target_vertiport = vp
                     break
         
         if target_vertiport:
-            self.current_vertiport = target_vertiport
-            if str(target_vertiport) == str(self.destination_vertiport):
-                self.status = "LANDED"
-                self.state = "landed"
+            # Check if this is the final destination
+            if (self.final_destination and hasattr(self.final_destination, 'name') and 
+                hasattr(target_vertiport, 'name') and 
+                target_vertiport.name == self.final_destination.name):
+                # This is the final destination - but still need to fly there visually
+                if self.set_destination_vertiport(target_vertiport):
+                    self.status = "FLYING"
+                else:
+                    # Fallback to immediate arrival
+                    self.current_vertiport = target_vertiport
+                    self.status = "LANDED"
+                    self.state = "landed"
             else:
-                self.status = "FLYING"
-                self.state = "flying"
+                # Start visual flight to next vertiport
+                if self.set_destination_vertiport(target_vertiport):
+                    self.status = "FLYING"
+                else:
+                    # Fallback to immediate movement
+                    self.current_vertiport = target_vertiport
+                    self.status = "FLYING"
+                    self.state = "flying"
     
     def hover(self):
         """Increment hover count."""
@@ -506,6 +538,82 @@ class VTOL(Drawable):
     def can_hover(self) -> bool:
         """Check if VTOL can still hover."""
         return self.hover_count < self.max_hover_count
+
+    def set_planned_route(self, route: List[str], vertiports_map: Dict[str, object]):
+        """Set the planned route for this VTOL from JSON configuration."""
+        self.planned_route = route.copy()
+        self.vertiports_map = vertiports_map
+        self.is_circulating = True
+        self.current_route_index = 0
+        self.reverse_direction = False
+        
+        # Determine if route is circular
+        self.is_circular_route = len(route) > 1 and route[0] == route[-1]
+        
+        # Set initial position to first vertiport in route
+        if route and route[0] in vertiports_map:
+            initial_vertiport = vertiports_map[route[0]]
+            self.current_vertiport = initial_vertiport
+            self.xo = initial_vertiport.x + 30
+            self.yo = initial_vertiport.y + 30
+            self.bxo = self.xo
+            self.byo = self.yo
+            self.state = "landed"
+            self.status = "WAITING"
+    
+    def get_next_planned_destination(self) -> Optional[str]:
+        """Get the next destination in the planned route."""
+        if not self.planned_route or len(self.planned_route) < 2:
+            return None
+            
+        if self.is_circular_route:
+            # For circular routes, just move to next index
+            next_index = (self.current_route_index + 1) % len(self.planned_route)
+        else:
+            # For non-circular routes, use ping-pong logic
+            if not self.reverse_direction:
+                next_index = self.current_route_index + 1
+                if next_index >= len(self.planned_route):
+                    # Switch direction and go back one step
+                    self.reverse_direction = True
+                    next_index = self.current_route_index - 1
+            else:
+                next_index = self.current_route_index - 1
+                if next_index < 0:
+                    # Switch direction and go forward one step
+                    self.reverse_direction = False
+                    next_index = self.current_route_index + 1
+        
+        if 0 <= next_index < len(self.planned_route):
+            return self.planned_route[next_index]
+        return None
+    
+    def advance_to_next_planned_destination(self):
+        """Move to the next destination in planned route and update index."""
+        next_dest_name = self.get_next_planned_destination()
+        if not next_dest_name:
+            return False
+            
+        # Update the route index
+        if self.is_circular_route:
+            self.current_route_index = (self.current_route_index + 1) % len(self.planned_route)
+        else:
+            if not self.reverse_direction:
+                self.current_route_index += 1
+                if self.current_route_index >= len(self.planned_route):
+                    self.reverse_direction = True
+                    self.current_route_index -= 2  # Go back two steps
+            else:
+                self.current_route_index -= 1
+                if self.current_route_index < 0:
+                    self.reverse_direction = False
+                    self.current_route_index += 2  # Go forward two steps
+        
+        # Find target vertiport and start movement
+        if next_dest_name in self.vertiports_map:
+            target_vertiport = self.vertiports_map[next_dest_name]
+            return self.set_destination_vertiport(target_vertiport)
+        return False
 
 class Vertiport(Drawable):
     """Visual vertiport with capacity management and drawing capabilities."""
@@ -817,25 +925,88 @@ class Network(Drawable):
         return set(self.vertiport_objects.values())
 
 class Simulation:
-    """Main simulation class with DataFrame input support."""
+    """Main simulation class with DataFrame input support and JSON route integration."""
     
-    def __init__(self, vertiports_df: pd.DataFrame, links_df: pd.DataFrame):
+    def __init__(self, vertiports_df: pd.DataFrame, links_df: pd.DataFrame, 
+                 vtol_routes_file: Optional[str] = None):
         """
-        Initialize simulation with DataFrames.
+        Initialize simulation with DataFrames and optional VTOL routes.
         
         Args:
             vertiports_df: DataFrame with vertiport info
             links_df: DataFrame with adjacency matrix
+            vtol_routes_file: Optional path to JSON file with VTOL routes
         """
         self.network = Network(vertiports_df, links_df)
         self.vtols = []
         self.current_time = 0
         self.vertiport_capacities = {}
+        self.vtol_routes_config = []
         
         # Initialize vertiport capacities
         for vertiport_id in self.network.get_vertiports():
             vertiport_info = self.network.get_vertiport_info(vertiport_id)
             self.vertiport_capacities[vertiport_id] = vertiport_info.get('capacity', 1)
+        
+        # Load VTOL routes if provided
+        if vtol_routes_file and os.path.exists(vtol_routes_file):
+            self.load_vtol_routes(vtol_routes_file)
+    
+    def load_vtol_routes(self, routes_file: str):
+        """Load VTOL routes from JSON file."""
+        try:
+            with open(routes_file, 'r', encoding='utf-8') as f:
+                self.vtol_routes_config = json.load(f)
+            print(f"Loaded {len(self.vtol_routes_config)} VTOL routes from {routes_file}")
+        except Exception as e:
+            print(f"Error loading VTOL routes: {e}")
+            self.vtol_routes_config = []
+    
+    def create_vtols_from_routes(self):
+        """Create VTOLs based on loaded routes configuration."""
+        if not self.vtol_routes_config:
+            print("No VTOL routes configuration loaded.")
+            return
+        
+        # Create vertiports map for VTOLs
+        vertiports_map = {}
+        for vp_id, vp_obj in self.network.vertiport_objects.items():
+            vertiports_map[vp_id] = vp_obj
+        
+        created_count = 0
+        for route_config in self.vtol_routes_config:
+            vtol_id = route_config.get('vtol_id', f'VTOL-{created_count+1}')
+            route = route_config.get('route', [])
+            
+            if len(route) < 2:
+                print(f"Skipping VTOL {vtol_id}: route too short")
+                continue
+            
+            # Validate that all vertiports in route exist
+            invalid_vertiports = [vp for vp in route if vp not in vertiports_map]
+            if invalid_vertiports:
+                print(f"Skipping VTOL {vtol_id}: invalid vertiports {invalid_vertiports}")
+                continue
+            
+            # Create VTOL at first vertiport in route
+            first_vp = vertiports_map[route[0]]
+            vtol = VTOL(first_vp.x + 30, first_vp.y + 30, self.network)
+            vtol.vtol_id = vtol_id
+            vtol.set_planned_route(route, vertiports_map)
+            
+            self.vtols.append(vtol)
+            created_count += 1
+            print(f"Created VTOL {vtol_id} with route: {' → '.join(route)}")
+        
+        print(f"Successfully created {created_count} VTOLs from routes configuration")
+    
+    def start_planned_routes(self):
+        """Start all VTOLs on their planned routes."""
+        for vtol in self.vtols:
+            if hasattr(vtol, 'planned_route') and vtol.planned_route and vtol.is_circulating:
+                if vtol.advance_to_next_planned_destination():
+                    vtol.status = "FLYING"
+                    print(f"Started VTOL {vtol.vtol_id} on planned route")
     
     def add_vtol(self, vtol_id: int, origin: str, destination: str, 
                  departure_time: int, passengers: int = 1) -> bool:
@@ -860,13 +1031,16 @@ class Simulation:
         
         # Create visual VTOL
         vtol = VTOL(origin_obj.x + 30, origin_obj.y + 30, self.network)
-        vtol.id = vtol_id
-        vtol.start_vertiport = origin
-        vtol.destination_vertiport = destination_obj
+        vtol.vtol_id = str(vtol_id)
         vtol.departure_time = departure_time
         vtol.passengers = passengers
         vtol.current_vertiport = origin_obj
-        vtol.route = route  # Store string route for compatibility
+        vtol.status = "WAITING"
+        vtol.state = "landed"
+        
+        # Set final destination for the journey
+        vtol.final_destination = destination_obj
+        vtol.journey_route = route  # Store string route for compatibility
         vtol.flight_path = [self.network.get_vertiport_object(vp_name) for vp_name in route]
         
         self.vtols.append(vtol)
@@ -899,37 +1073,56 @@ class Simulation:
         
         # Process each VTOL
         for vtol in self.vtols:
-            if vtol.status == "LANDED" or vtol.state == "landed":
-                continue
-            
-            if vtol.can_depart(self.current_time, self.vertiport_capacities):
-                # Find next vertiport in route
-                if hasattr(vtol, 'route') and vtol.route:
-                    current_vertiport_name = vtol.current_vertiport.name if hasattr(vtol.current_vertiport, 'name') else str(vtol.current_vertiport)
-                    try:
-                        current_index = vtol.route.index(current_vertiport_name)
-                        if current_index < len(vtol.route) - 1:
-                            next_vertiport_name = vtol.route[current_index + 1]
-                            vtol.fly_to_next_vertiport(next_vertiport_name)
-                    except ValueError:
-                        # Current vertiport not in route, try to find next step
-                        if len(vtol.route) > 0:
-                            vtol.fly_to_next_vertiport(vtol.route[0])
-            elif (vtol.status == "WAITING" or vtol.state == "landed") and vtol.can_hover():
-                vtol.hover()
+            # Handle VTOLs with planned routes (from JSON)
+            if hasattr(vtol, 'planned_route') and vtol.planned_route and vtol.is_circulating:
+                self._process_planned_route_vtol(vtol)
+            else:
+                # Handle traditional simulation VTOLs
+                self._process_simulation_vtol(vtol)
         
         # Update visual VTOLs
         for vtol in self.vtols:
             if hasattr(vtol, 'update'):
                 vtol.update()
     
+    def _process_planned_route_vtol(self, vtol):
+        """Process a VTOL following a planned route."""
+        if vtol.state == "landed" and vtol.status != "FLYING":
+            # VTOL is landed and ready to move to next destination
+            if vtol.advance_to_next_planned_destination():
+                vtol.status = "FLYING"
+                # Update departure time for compatibility
+                vtol.departure_time = self.current_time
+    
+    def _process_simulation_vtol(self, vtol):
+        """Process a traditional simulation VTOL."""
+        # Skip VTOLs that have already reached their final destination
+        if vtol.status == "LANDED":
+            return
+        
+        if vtol.can_depart(self.current_time, self.vertiport_capacities):
+            # Find next vertiport in route
+            if hasattr(vtol, 'journey_route') and vtol.journey_route:
+                current_vertiport_name = vtol.current_vertiport.name if hasattr(vtol.current_vertiport, 'name') else str(vtol.current_vertiport)
+                try:
+                    current_index = vtol.journey_route.index(current_vertiport_name)
+                    if current_index < len(vtol.journey_route) - 1:
+                        next_vertiport_name = vtol.journey_route[current_index + 1]
+                        vtol.fly_to_next_vertiport(next_vertiport_name)
+                except ValueError:
+                    # Current vertiport not in route, start from beginning
+                    if len(vtol.journey_route) > 0:
+                        vtol.fly_to_next_vertiport(vtol.journey_route[0])
+        elif (vtol.status == "WAITING" or vtol.state == "landed") and vtol.can_hover():
+            vtol.hover()
+    
     def run_simulation(self, max_time: int = 100):
         """Run simulation for specified time steps."""
         for _ in range(max_time):
             self.simulate_step()
             
-            # Check if all VTOLs have landed
-            if all(vtol.status == "LANDED" for vtol in self.vtols):
+            # Check if all VTOLs have landed (for traditional simulation)
+            if all(vtol.status == "LANDED" for vtol in self.vtols if not (hasattr(vtol, 'is_circulating') and vtol.is_circulating)):
                 break
         
         return self.get_simulation_results()
@@ -955,23 +1148,40 @@ class Simulation:
             else:
                 current_vp_name = str(vtol.current_vertiport)
             
-            # Get destination name
-            dest_name = vtol.destination_vertiport
-            if hasattr(vtol.destination_vertiport, 'name'):
-                dest_name = vtol.destination_vertiport.name
-            elif isinstance(vtol.destination_vertiport, str):
-                dest_name = vtol.destination_vertiport
+            # Get route information
+            if hasattr(vtol, 'planned_route') and vtol.planned_route:
+                # For planned route VTOLs
+                origin_name = vtol.planned_route[0] if vtol.planned_route else "Unknown"
+                dest_name = vtol.planned_route[-1] if vtol.planned_route else "Unknown"
+                route = vtol.planned_route
             else:
-                dest_name = str(vtol.destination_vertiport)
+                # For traditional simulation VTOLs
+                origin_name = vtol.journey_route[0] if vtol.journey_route else "Unknown"
+                
+                # Get destination name
+                if hasattr(vtol, 'final_destination') and vtol.final_destination:
+                    if hasattr(vtol.final_destination, 'name'):
+                        dest_name = vtol.final_destination.name
+                    else:
+                        dest_name = str(vtol.final_destination)
+                elif hasattr(vtol.destination_vertiport, 'name'):
+                    dest_name = vtol.destination_vertiport.name
+                elif isinstance(vtol.destination_vertiport, str):
+                    dest_name = vtol.destination_vertiport
+                else:
+                    dest_name = str(vtol.destination_vertiport) if vtol.destination_vertiport else "Unknown"
+                
+                route = vtol.journey_route
             
             results['vtol_details'].append({
-                'id': vtol.id,
-                'origin': vtol.start_vertiport,
+                'id': vtol.vtol_id,
+                'origin': origin_name,
                 'destination': dest_name,
                 'current_vertiport': current_vp_name,
                 'status': vtol.status,
                 'hover_count': vtol.hover_count,
-                'route': vtol.route
+                'route': route,
+                'is_planned_route': hasattr(vtol, 'planned_route') and vtol.planned_route and vtol.is_circulating
             })
         
         return results

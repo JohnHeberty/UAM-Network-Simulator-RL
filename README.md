@@ -240,19 +240,33 @@ while running:
 pygame.quit()
 ```
 
-### **Scripts Demonstrativos**
+### **Script Demonstrativo Principal**
 
-Execute os demos para ver diferentes funcionalidades:
+Execute o demo principal para ver todas as funcionalidades:
 
 ```bash
+# Demo principal unificado com todas as funcionalidades
+python demo_main.py
+```
+
+**Funcionalidades do Demo Principal:**
+- VTOLs com rotas planejadas do JSON (circulares e ping-pong)
+- VTOLs de simulação tradicional (ponto-a-ponto)
+- Visualização em tempo real com informações detalhadas
+- Controles interativos:
+  - **SPACE**: Pausar/Retomar simulação
+  - **I**: Alternar exibição de informações
+  - **R**: Alternar exibição de rotas
+  - **S**: Reiniciar rotas planejadas
+  - **ESC**: Sair
+
+**Outros Demos Disponíveis:**
+```bash
 # Demo completo com interface pygame
-python demo_pygame_visualization.py
+python visual_demo.py
 
-# Demo de roteamento CSV
-python demo_csv_routing.py
-
-# Demo de rotas VTOL
-python demo_vtol_routing.py
+# Demo de timing de simulação
+python test_timing.py
 ```
 
 ---
@@ -343,10 +357,10 @@ O projeto inclui uma suíte abrangente de testes organizados em `tests/`:
 - `test_pygame_components.py` - Componentes da interface pygame
 - `test_pygame_headless.py` - Teste headless (sem display)
 
-### **Demos Interativas**  
-- `demo_pygame_visualization.py` - Demonstração visual completa
-- `demo_csv_routing.py` - Roteamento baseado em CSV
-- `demo_vtol_routing.py` - Rotas de VTOLs
+### **Demos e Testes**  
+- `demo_main.py` - Demo principal unificado com todas as funcionalidades
+- `visual_demo.py` - Demonstração visual básica
+- `test_timing.py` - Teste de desempenho e timing
 
 ```bash
 # Executar todos os testes

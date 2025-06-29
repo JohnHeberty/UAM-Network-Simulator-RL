@@ -6,7 +6,13 @@ This script demonstrates the pygame-based visualization of VTOLs moving through 
 
 import pygame
 import sys
+import os
 import pandas as pd
+
+# Add project root to path
+project_root = os.path.dirname(os.path.dirname(__file__))
+sys.path.insert(0, project_root)
+
 from src.Modules.Simulation.engine import Simulation, VTOL
 
 def main():
@@ -49,14 +55,15 @@ def main():
         if len(vertiports) >= 4:
             # Add circulating VTOL
             origin_obj = simulation.network.get_vertiport_object(vertiports[0])
-            circulating_vtol = VTOL(origin_obj.x + 30, origin_obj.y + 30, simulation.network)
-            circulating_vtol.id = 3
-            circulating_vtol.current_vertiport = origin_obj
-            circulating_vtol.is_circulating = True
-            circulating_vtol.state = "landed"
-            circulating_vtol.state_timer = 30
-            simulation.vtols.append(circulating_vtol)
-            print(f"Added circulating VTOL 3 starting at {vertiports[0]}")
+            if origin_obj:  # Check if vertiport object exists
+                circulating_vtol = VTOL(origin_obj.x + 30, origin_obj.y + 30, simulation.network)
+                circulating_vtol.vtol_id = "3"  # Use vtol_id instead of id
+                circulating_vtol.current_vertiport = origin_obj
+                circulating_vtol.is_circulating = True
+                circulating_vtol.state = "landed"
+                circulating_vtol.state_timer = 30
+                simulation.vtols.append(circulating_vtol)
+                print(f"Added circulating VTOL 3 starting at {vertiports[0]}")
     
     # Font for UI text
     pygame.font.init()
