@@ -30,6 +30,144 @@ class Drawable(ABC):
     def draw(self, surface):
         pass
 
+class MatrizOD:
+    """Classe para gerenciar matriz origem-destino de demanda de passageiros"""
+    
+    def __init__(self, csv_file_path):
+        self.csv_file_path = csv_file_path
+        self.demand_data = None
+        self.current_time_minutes = 0  # Tempo em minutos desde 00:00
+        self.load_demand_data()
+    
+    def load_demand_data(self):
+        """Carrega dados de demanda do arquivo CSV"""
+        try:
+            self.demand_data = pd.read_csv(self.csv_file_path)
+            print(f"Loaded {len(self.demand_data)} demand records from {self.csv_file_path}")
+        except FileNotFoundError:
+            print(f"Warning: Demand file {self.csv_file_path} not found. Using default demand.")
+            self.demand_data = pd.DataFrame()
+    
+    def time_to_minutes(self, time_str):
+        """Converte string de tempo (HH:MM) para minutos desde 00:00"""
+        try:
+            hour, minute = map(int, time_str.split(':'))
+            return hour * 60 + minute
+        except ValueError:
+            return 0
+    
+    def get_current_time_str(self):
+        """Retorna tempo atual como string HH:MM"""
+        hours = self.current_time_minutes // 60
+        minutes = self.current_time_minutes % 60
+        return f"{hours:02d}:{minutes:02d}"
+    
+    def advance_time(self, minutes=1):
+        """Avança o tempo da simulação"""
+        self.current_time_minutes += minutes
+        # Reset após 24 horas
+        if self.current_time_minutes >= 24 * 60:
+            self.current_time_minutes = 0
+    
+    def get_current_demand(self):
+        """Retorna demanda atual baseada no tempo de simulação"""
+        if self.demand_data is None or self.demand_data.empty:
+            return []
+        
+        current_demands = []
+        for _, row in self.demand_data.iterrows():
+            start_time = self.time_to_minutes(row['hora_inicio'])
+            end_time = self.time_to_minutes(row['hora_fim'])
+            
+            # Verifica se o tempo atual está no intervalo
+            if start_time <= self.current_time_minutes < end_time:
+                current_demands.append({
+                    'origem': row['vertiport_origem'],
+                    'destino': row['vertiport_destino'],
+                    'demanda': int(row['demanda'])
+                })
+        
+        return current_demands
+
+# --- Princípio da Responsabilidade Única (SRP) ---
+class Person(Drawable):
+    def __init__(self, x, y, origin_vertiport=None, destination_vertiport=None):
+        self.xo = x  # origin position
+        self.yo = y  # origin position
+        self.xd = x  # destination position
+        self.yd = y  # destination position
+        self.bxo = x  # before position x
+        self.byo = y  # before position y
+        
+        self.origin_vertiport = origin_vertiport
+        self.destination_vertiport = destination_vertiport
+        self.current_vertiport = origin_vertiport
+        
+        self.state = "waiting"  # waiting, boarding, flying, arrived, leaving
+        self.path_planner = StraightLinePathPlanner()
+        self.clean = False
+        self.boarding_vtol = None
+        
+        # Animação de saída (pessoa sobe verticalmente quando sai do vertiporto)
+        self.exit_animation = False
+        self.exit_start_y = y
+        self.exit_speed = 2
+
+    def set_destination(self, xd, yd):
+        if (self.xd, self.yd) == (self.xo, self.yo):
+            self.xd = xd
+            self.yd = yd
+
+    def board_vtol(self, vtol):
+        """Embarca a pessoa no VTOL"""
+        self.boarding_vtol = vtol
+        self.state = "boarding"
+    
+    def arrive_at_destination(self):
+        """Pessoa chegou ao destino - inicia animação de saída"""
+        self.state = "leaving"
+        self.exit_animation = True
+        self.exit_start_y = self.yo
+        self.current_vertiport = self.destination_vertiport
+    
+    def is_ready_for_cleanup(self):
+        """Verifica se a pessoa está pronta para ser removida da simulação"""
+        return self.clean
+
+    def draw(self, surface):
+        # Atualiza posição baseada no estado
+        if self.state == "flying" and self.boarding_vtol:
+            # Pessoa está voando - segue o VTOL
+            self.xo = self.boarding_vtol.xo + 10  # Offset para não sobrepor
+            self.yo = self.boarding_vtol.yo + 10
+        elif self.state == "leaving" and self.exit_animation:
+            # Animação de saída - pessoa sobe verticalmente
+            self.yo -= self.exit_speed
+            if self.yo < -20:  # Saiu da tela
+                self.clean = True
+                return
+        else:
+            # Movimento normal
+            self.xo, self.yo = self.path_planner.get_next_point((self.xo, self.yo), (self.xd, self.yd))
+            if (self.bxo, self.byo) == (self.xo, self.yo) and self.state == "leaving":
+                # Pessoa parou no vertiporto de destino - inicia saída
+                self.exit_animation = True
+                self.exit_start_y = self.yo
+        
+        # Atualiza posição anterior
+        self.bxo, self.byo = self.xo, self.yo
+        
+        # Desenha a pessoa com cor baseada no estado
+        color = PERSON_COLOR
+        if self.state == "boarding":
+            color = (255, 255, 100)  # Amarelo para embarcando
+        elif self.state == "flying":
+            color = (100, 255, 100)  # Verde para voando
+        elif self.state == "leaving":
+            color = (255, 200, 100)  # Laranja para saindo
+            
+        pygame.draw.circle(surface, color, (int(self.xo), int(self.yo)), 3)
+
 class PathPlanner(ABC):
     """Interface for route planning strategies"""
     @abstractmethod
@@ -940,6 +1078,7 @@ class Simulation:
         self.network = Network(vertiports_df, links_df)
         self.vtols = []
         self.current_time = 0
+        self.matriz_od: Optional[MatrizOD] = None  # Matriz origem-destino para demanda de passageiros
         self.vertiport_capacities = {}
         self.vtol_routes_config = []
         
@@ -1185,3 +1324,180 @@ class Simulation:
             })
         
         return results
+
+# --- Interface de Usuário Pygame ---
+class SimulatorUI:
+    """Interface de usuário principal usando Pygame"""
+    
+    def __init__(self, fps: bool = True, demand_file=None):
+        self.title_window = "UAM Network Simulator with Passengers"
+        self.fps = fps
+        
+        # Inicializa pygame
+        pygame.init()
+        self.clock = pygame.time.Clock()
+        pygame.display.set_caption(self.title_window)
+        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        
+        # Cria simulação básica para demo de passageiros
+        self.sim = self.create_demo_simulation(demand_file)
+
+    def create_demo_simulation(self, demand_file):
+        """Cria uma simulação de demonstração simples"""
+        # Dados básicos para demo
+        vertiports_data = {
+            'name': ['V1', 'V2', 'V3', 'V4', 'V5'],
+            'capacity': [2, 2, 2, 2, 2],
+            'x': [100, 300, 500, 700, 400],
+            'y': [100, 150, 200, 100, 400]
+        }
+        
+        links_data = {
+            'X': ['V1', 'V2', 'V3', 'V4', 'V5'],
+            'V1': ['', 'x', 'x', '', ''],
+            'V2': ['x', '', 'x', 'x', 'x'],
+            'V3': ['x', 'x', '', 'x', 'x'],
+            'V4': ['', 'x', 'x', '', 'x'],
+            'V5': ['', 'x', 'x', 'x', '']
+        }
+        
+        vertiports_df = pd.DataFrame(vertiports_data)
+        links_df = pd.DataFrame(links_data)
+        
+        # Cria simulação com rede básica
+        sim = Simulation(vertiports_df, links_df)
+        
+        # Adiciona matriz de demanda se fornecida
+        if demand_file:
+            sim.matriz_od = MatrizOD(demand_file)
+        
+        return sim
+    
+    def run(self):
+        """Loop principal da simulação"""
+        running = True
+        frame_count = 0
+        
+        while running:
+            self.clock.tick(FPS)
+            if self.fps:
+                pygame.display.set_caption(f"{self.title_window} - FPS: {self.clock.get_fps():.2f}")
+
+            # Processa eventos
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        running = False
+
+            # Simula passageiros baseado na demanda
+            if hasattr(self.sim, 'matriz_od') and self.sim.matriz_od:
+                self.process_passenger_demand()
+            
+            # Adiciona VTOLs ocasionalmente para demonstração
+            if frame_count % 300 == 0:  # A cada 5 segundos
+                self.spawn_demo_vtol()
+            
+            # Atualiza simulação
+            self.sim.simulate_step()
+            
+            # Desenha tela
+            self.screen.fill((30, 30, 30))
+            self.draw_simulation()
+            
+            pygame.display.flip()
+            frame_count += 1
+
+        pygame.quit()
+        sys.exit()
+    
+    def process_passenger_demand(self):
+        """Processa demanda de passageiros baseada no tempo"""
+        if not hasattr(self.sim, 'matriz_od') or not self.sim.matriz_od:
+            return
+            
+        # Avança tempo a cada segundo
+        if hasattr(self, '_last_time_update'):
+            if pygame.time.get_ticks() - self._last_time_update > 1000:  # 1 segundo
+                self.sim.matriz_od.advance_time(1)  # Avança 1 minuto
+                self._last_time_update = pygame.time.get_ticks()
+        else:
+            self._last_time_update = pygame.time.get_ticks()
+        
+        # Gera passageiros baseado na demanda atual
+        current_demands = self.sim.matriz_od.get_current_demand()
+        
+        for demand in current_demands:
+            # Pequena chance de gerar passageiro a cada frame
+            if hasattr(pygame, 'time') and pygame.time.get_ticks() % 30 == 0:  # A cada meio segundo
+                if len(current_demands) > 0:  # Se há demanda
+                    self.spawn_passenger(demand['origem'], demand['destino'])
+    
+    def spawn_passenger(self, origin_name, destination_name):
+        """Spawna um passageiro nos vertiportos"""
+        # Por enquanto, apenas imprime a demanda (simulação visual básica)
+        print(f"Passenger demand: {origin_name} → {destination_name}")
+    
+    def spawn_demo_vtol(self):
+        """Spawna um VTOL para demonstração"""
+        if hasattr(self.sim, 'network') and self.sim.network:
+            vertiports = list(self.sim.network.vertiport_objects.values())
+            if len(vertiports) >= 2:
+                import random
+                origin = random.choice(vertiports)
+                destination = random.choice([vp for vp in vertiports if vp != origin])
+                
+                # Cria VTOL simples
+                vtol = VTOL(origin.x + 30, origin.y + 30, self.sim.network)
+                vtol.current_vertiport = origin
+                vtol.set_destination_vertiport(destination)
+                
+                self.sim.vtols.append(vtol)
+    
+    def draw_simulation(self):
+        """Desenha a simulação na tela"""
+        # Desenha rede se disponível
+        if hasattr(self.sim, 'network') and self.sim.network:
+            self.sim.network.draw(self.screen)
+        
+        # Desenha VTOLs
+        if hasattr(self.sim, 'vtols'):
+            for vtol in self.sim.vtols:
+                if hasattr(vtol, 'draw'):
+                    vtol.draw(self.screen)
+        
+        # Desenha informações de tempo se disponível
+        if hasattr(self.sim, 'matriz_od') and self.sim.matriz_od:
+            font = pygame.font.Font(None, 24)
+            time_text = f"Time: {self.sim.matriz_od.get_current_time_str()}"
+            time_surface = font.render(time_text, True, (255, 255, 255))
+            self.screen.blit(time_surface, (10, 10))
+            
+            # Mostra demanda atual
+            current_demands = self.sim.matriz_od.get_current_demand()
+            if current_demands:
+                y_offset = 35
+                small_font = pygame.font.Font(None, 18)
+                demand_text = f"Current demand routes: {len(current_demands)}"
+                demand_surface = small_font.render(demand_text, True, (200, 200, 200))
+                self.screen.blit(demand_surface, (10, y_offset))
+                
+                # Lista algumas demandas
+                for i, demand in enumerate(current_demands[:5]):  # Mostra até 5
+                    y_offset += 20
+                    route_text = f"{demand['origem']} → {demand['destino']}: {demand['demanda']}"
+                    route_surface = small_font.render(route_text, True, (150, 150, 255))
+                    self.screen.blit(route_surface, (15, y_offset))
+        
+        # Informações de controle
+        font = pygame.font.Font(None, 20)
+        control_text = "ESC: Exit | Demo running..."
+        control_surface = font.render(control_text, True, (200, 200, 200))
+        self.screen.blit(control_surface, (10, HEIGHT - 30))
+
+if __name__ == "__main__":
+    # Demo básico
+    demand_file = "src/data/demanda_passageiros.csv"
+    app = SimulatorUI(fps=True, demand_file=demand_file)
+    app.run()

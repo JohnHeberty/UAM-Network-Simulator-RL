@@ -58,15 +58,15 @@ def main():
     simulation.create_vtols_from_routes()
     json_vtols = len(simulation.vtols)
     
-    # Add some traditional simulation VTOLs
-    simulation.add_vtol(100, "V1", "V5", 0, 1)  # Immediate departure
-    simulation.add_vtol(101, "V3", "V1", 20, 2)  # Delayed departure
-    simulation.add_vtol(102, "V2", "V4", 40, 1)  # Later departure
-    traditional_vtols = len(simulation.vtols) - json_vtols
+    # # Add some traditional simulation VTOLs
+    # simulation.add_vtol(100, "V1", "V5", 0, 1)  # Immediate departure
+    # simulation.add_vtol(101, "V3", "V1", 20, 2)  # Delayed departure
+    # simulation.add_vtol(102, "V2", "V4", 40, 1)  # Later departure
+    # traditional_vtols = len(simulation.vtols) - json_vtols
     
-    print(f"Created {json_vtols} VTOLs from JSON routes")
-    print(f"Added {traditional_vtols} traditional simulation VTOLs")
-    print(f"Total: {len(simulation.vtols)} VTOLs")
+    # print(f"Created {json_vtols} VTOLs from JSON routes")
+    # print(f"Added {traditional_vtols} traditional simulation VTOLs")
+    # print(f"Total: {len(simulation.vtols)} VTOLs")
     
     # Start JSON route VTOLs
     simulation.start_planned_routes()
