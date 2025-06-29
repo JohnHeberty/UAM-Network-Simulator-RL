@@ -22,6 +22,7 @@ VERTIPORT_BORDER_COLOR = (220, 220, 220)
 NETWORK_LINK_COLOR = (150, 150, 255)
 NETWORK_LINK_HIGHLIGHT_COLOR = (255, 255, 100)
 VTOL_DRAW_SIZE = 16
+PERSON_COLOR = (255, 100, 100)  # Red color for passengers
 
 # Visual Interfaces
 class Drawable(ABC):
@@ -146,9 +147,11 @@ class Person(Drawable):
             if self.yo < -20:  # Saiu da tela
                 self.clean = True
                 return
-        else:
-            # Movimento normal
-            self.xo, self.yo = self.path_planner.get_next_point((self.xo, self.yo), (self.xd, self.yd))
+        elif self.state == "waiting":
+            # Movimento normal para posição de destino dentro do vertiport
+            if (self.xo, self.yo) != (self.xd, self.yd):
+                self.xo, self.yo = self.path_planner.get_next_point((self.xo, self.yo), (self.xd, self.yd))
+            # Verificar se chegou e está saindo
             if (self.bxo, self.byo) == (self.xo, self.yo) and self.state == "leaving":
                 # Pessoa parou no vertiporto de destino - inicia saída
                 self.exit_animation = True
@@ -166,7 +169,9 @@ class Person(Drawable):
         elif self.state == "leaving":
             color = (255, 200, 100)  # Laranja para saindo
             
-        pygame.draw.circle(surface, color, (int(self.xo), int(self.yo)), 3)
+        # Draw person safely (check for valid coordinates)
+        if self.xo >= 0 and self.yo >= 0:
+            pygame.draw.circle(surface, color, (int(self.xo), int(self.yo)), 3)
 
 class PathPlanner(ABC):
     """Interface for route planning strategies"""
@@ -248,6 +253,16 @@ class VTOL(Drawable):
         self.speed = 4
         self.path_planner = StraightLinePathPlanner(step=self.speed)
         
+        # Passenger management
+        self.onboard_passengers = []  # List of passengers currently on board
+        self.max_passengers = 4  # Maximum passenger capacity
+        
+        # Anti-stuck mechanisms
+        self.landed_timer = 0  # Track how long VTOL has been landed
+        self.max_landed_time = 200  # Maximum frames to stay landed before forced takeoff
+        self.hover_count = 0  # Track number of hover attempts
+        self.max_hover_count = 15  # Maximum hover attempts before abort
+        
         # Colors by state
         self.colors = {
             "landed": (80, 150, 200),
@@ -263,8 +278,6 @@ class VTOL(Drawable):
         self._hover_position = None
         
         # Simulation compatibility
-        self.hover_count = 0
-        self.max_hover_count = 10
         self.departure_time = 0
         self.passengers = 1
         self.status = "WAITING"  # For simulation compatibility
@@ -398,6 +411,9 @@ class VTOL(Drawable):
     def _start_takeoff(self):
         """Start the takeoff sequence"""
         if self.state == "landed":
+            # Try to board passengers before takeoff
+            self._board_passengers()
+            
             if self.current_vertiport and hasattr(self.current_vertiport, 'takeoff_vtol'):
                 self.current_vertiport.takeoff_vtol(self)
             
@@ -406,6 +422,54 @@ class VTOL(Drawable):
             self.scale_target = 1.0
             self.scale_animation = True
             self.current_vertiport = None
+    
+    def _board_passengers(self):
+        """Board passengers at current vertiport before takeoff"""
+        if not self.current_vertiport or not self.destination_vertiport:
+            return
+        
+        # Get destination name safely  
+        dest_name = getattr(self.destination_vertiport, 'name', str(self.destination_vertiport))
+        
+        # Get passengers going to our destination
+        available_seats = self.max_passengers - len(self.onboard_passengers)
+        if available_seats <= 0:
+            return
+        
+        # Get passengers from vertiport
+        passengers_to_board = self.current_vertiport.get_passengers_for_destination(
+            dest_name, 
+            available_seats
+        )
+        
+        for passenger in passengers_to_board:
+            passenger.board_vtol(self)
+            passenger.state = "flying"
+            self.onboard_passengers.append(passenger)
+            print(f"VTOL {self.vtol_id}: Boarded passenger going to {dest_name}")
+    
+    def _disembark_passengers(self):
+        """Disembark passengers at destination vertiport"""
+        if not self.current_vertiport:
+            return
+        
+        # Get current vertiport name safely
+        current_vp_name = getattr(self.current_vertiport, 'name', str(self.current_vertiport))
+        
+        passengers_to_disembark = []
+        for passenger in self.onboard_passengers[:]:
+            if (passenger.destination_vertiport and 
+                getattr(passenger.destination_vertiport, 'name', str(passenger.destination_vertiport)) == current_vp_name):
+                passengers_to_disembark.append(passenger)
+        
+        for passenger in passengers_to_disembark:
+            self.onboard_passengers.remove(passenger)
+            self.current_vertiport.receive_passenger(passenger)
+            print(f"VTOL {self.vtol_id}: Disembarked passenger at {current_vp_name}")
+    
+    def get_passenger_count(self):
+        """Get current number of passengers on board"""
+        return len(self.onboard_passengers)
     
     def _start_landing(self):
         """Start the landing sequence or hover if no space"""
@@ -427,13 +491,35 @@ class VTOL(Drawable):
     def _start_hovering(self):
         """Start hovering state over the vertiport"""
         self.state = "hovering"
-        self.state_timer = 60
+        self.state_timer = 60  # Initial hover time
+        self.hover_count = getattr(self, 'hover_count', 0) + 1  # Track hover attempts
         if self.destination_vertiport:
             self._hover_position = (
                 self.destination_vertiport.x + 30,
                 self.destination_vertiport.y + 10
             )
         self._can_attempt_landing = False
+        
+        print(f"🔄 VTOL {self.vtol_id}: Starting hover #{self.hover_count} at {self.destination_vertiport.name if self.destination_vertiport else 'unknown'}")
+        
+        # Limit hover attempts to prevent infinite hovering
+        if self.hover_count > self.max_hover_count:
+            print(f"⚠️  VTOL {self.vtol_id}: Too many hover attempts ({self.hover_count}), aborting mission...")
+            self._find_alternative_or_abort()
+
+    def _find_alternative_or_abort(self):
+        """Find alternative route or abort mission when hovering too long"""
+        # For now, just clean up the VTOL to prevent infinite hovering
+        # In a more sophisticated system, we could find alternative vertiports
+        print(f"🚁 VTOL {self.vtol_id}: Aborting mission due to excessive hovering")
+        
+        # Remove from hovering queue if present
+        if (self.destination_vertiport and 
+            hasattr(self.destination_vertiport, 'hovering_queue') and 
+            self in self.destination_vertiport.hovering_queue):
+            self.destination_vertiport.hovering_queue.remove(self)
+        
+        self.clean = True
     
     def _update_scale_animation(self):
         """Update scale animation"""
@@ -483,6 +569,7 @@ class VTOL(Drawable):
             self.state_timer -= 1
         
         if self.state == "taking_off":
+            self.landed_timer = 0  # Reset landed timer when taking off
             if self.state_timer <= 0:
                 self.state = "flying"
                 if len(self.flight_path) > 1:
@@ -498,6 +585,8 @@ class VTOL(Drawable):
                         self.xo = self.destination_vertiport.x + 30
                         self.yo = self.destination_vertiport.y + 30
                         self.current_vertiport = self.destination_vertiport
+                        # Disembark passengers after landing
+                        self._disembark_passengers()
                     else:
                         self._start_hovering()
                 else:
@@ -506,6 +595,8 @@ class VTOL(Drawable):
                         self.xo = self.destination_vertiport.x + 30
                         self.yo = self.destination_vertiport.y + 30
                     self.current_vertiport = self.destination_vertiport
+                    # Disembark passengers after landing
+                    self._disembark_passengers()
                 
                 if (self.current_vertiport and 
                     self.destination_vertiport and 
@@ -525,18 +616,38 @@ class VTOL(Drawable):
                 )
                 self.xo, self.yo = new_pos
             
+            # Check for landing opportunity more frequently
             if (self._can_attempt_landing or self.state_timer <= 0):
                 if (self.destination_vertiport and 
                     hasattr(self.destination_vertiport, 'can_land') and 
                     self.destination_vertiport.can_land(self)):
+                    print(f"🛬 VTOL {self.vtol_id}: Landing spot available, attempting landing...")
                     self._start_landing()
                 else:
-                    self.state_timer = 60
+                    # Reset timer and try again, but with exponentially increasing intervals
+                    self.state_timer = min(120, 60 + (self.hover_count * 10))  # Increase wait time
                     self._can_attempt_landing = False
-                    self.hover_count += 1  # For compatibility
+                    print(f"⏳ VTOL {self.vtol_id}: Still hovering (attempt {self.hover_count}), waiting {self.state_timer} frames...")
         
         elif self.state == "landed":
-            if (hasattr(self, 'is_circulating') and self.is_circulating and self.state_timer <= 0):
+            self.landed_timer += 1  # Increment landed timer
+            
+            # Anti-stuck mechanism: Force takeoff if landed too long
+            if self.landed_timer > self.max_landed_time:
+                print(f"⚠️  VTOL {self.vtol_id}: Forced takeoff after {self.landed_timer} frames landed")
+                if hasattr(self, 'is_circulating') and self.is_circulating:
+                    if not self._set_next_circulation_destination():
+                        # If can't set next destination, try to force it
+                        print(f"🔄 VTOL {self.vtol_id}: Retrying route continuation...")
+                        self.state_timer = 5  # Short timer to retry soon
+                else:
+                    # For non-circulating VTOLs, clean them up to avoid infinite stuck
+                    print(f"🧹 VTOL {self.vtol_id}: Cleaning up non-circulating VTOL")
+                    self.clean = True
+                self.landed_timer = 0  # Reset timer
+            
+            # VTOLs circulantes devem continuar suas rotas
+            elif (hasattr(self, 'is_circulating') and self.is_circulating and self.state_timer <= 0):
                 if hasattr(self, '_next_destination'):
                     next_dest = self._next_destination
                     delattr(self, '_next_destination')
@@ -549,13 +660,42 @@ class VTOL(Drawable):
                                     self.vertiports_map[vp_id] == next_dest):
                                     self.current_route_index = i
                                     break
+                        print(f"🚁 VTOL {self.vtol_id}: Starting next leg of route to {getattr(next_dest, 'name', 'unknown')}")
+                        self.landed_timer = 0  # Reset timer on departure
+                    else:
+                        print(f"❌ VTOL {self.vtol_id}: Failed to set destination, will retry...")
+                        self.state_timer = 10  # Retry in 10 frames
                 else:
-                    self._set_next_circulation_destination()
+                    # Automatically set next destination if not set
+                    if self._set_next_circulation_destination():
+                        print(f"🔄 VTOL {self.vtol_id}: Continuing circulation route")
+                        self.landed_timer = 0  # Reset timer on departure
+                    else:
+                        # If cannot set next destination, schedule retry
+                        print(f"⏳ VTOL {self.vtol_id}: Cannot set next destination, retrying in 15 frames...")
+                        self.state_timer = 15  # Retry in 15 frames
+                    
             elif (hasattr(self, 'planned_route') and self.planned_route and 
                   self.is_circulating and self.state_timer <= 0):
                 # For planned route VTOLs, automatically continue to next destination
                 if self.advance_to_next_planned_destination():
                     self.status = "FLYING"
+                    self.landed_timer = 0  # Reset timer on departure
+                    print(f"✈️  VTOL {self.vtol_id}: Advancing to next planned destination")
+                else:
+                    print(f"⚠️  VTOL {self.vtol_id}: Failed to advance, retrying...")
+                    self.state_timer = 15  # Retry in 15 frames
+                    
+            # Traditional VTOLs (não-circulantes) também devem poder continuar
+            elif not hasattr(self, 'is_circulating') or not self.is_circulating:
+                # Para VTOLs tradicionais, verificar se há próximo destino pendente
+                if hasattr(self, 'final_destination') and self.final_destination:
+                    # Se ainda não chegou ao destino final, continuar
+                    if (self.current_vertiport != self.final_destination and 
+                        self.state_timer <= 0):
+                        print(f"🚁 VTOL {self.vtol_id}: Continuing to final destination")
+                        self.set_destination_vertiport(self.final_destination)
+                        self.landed_timer = 0  # Reset timer on departure
         
         elif self.state in ["flying", "in_transit"]:
             self._update_movement()
@@ -621,6 +761,16 @@ class VTOL(Drawable):
             dest_y = self.destination_vertiport.y + 30
             pygame.draw.line(surface, (255, 255, 0), 
                            (self.xo, self.yo), (dest_x, dest_y), 1)
+        
+        # Draw passenger count if carrying passengers
+        if len(self.onboard_passengers) > 0:
+            if hasattr(pygame, 'font') and pygame.font.get_init():
+                font = pygame.font.Font(None, 16)
+                passenger_text = str(len(self.onboard_passengers))
+                text_surface = font.render(passenger_text, True, (255, 255, 255))
+                text_x = self.xo - text_surface.get_width() // 2
+                text_y = self.yo - size - 10
+                surface.blit(text_surface, (text_x, text_y))
     
     # Compatibility methods for simulation
     def can_depart(self, current_time: int, vertiport_capacity: Dict[str, int]) -> bool:
@@ -692,10 +842,12 @@ class VTOL(Drawable):
         if route and route[0] in vertiports_map:
             initial_vertiport = vertiports_map[route[0]]
             self.current_vertiport = initial_vertiport
-            self.xo = initial_vertiport.x + 30
-            self.yo = initial_vertiport.y + 30
-            self.bxo = self.xo
-            self.byo = self.yo
+            # Safe access to x, y attributes
+            if hasattr(initial_vertiport, 'x') and hasattr(initial_vertiport, 'y'):
+                self.xo = initial_vertiport.x + 30
+                self.yo = initial_vertiport.y + 30
+                self.bxo = self.xo
+                self.byo = self.yo
             self.state = "landed"
             self.status = "WAITING"
     
@@ -763,6 +915,9 @@ class Vertiport(Drawable):
         self.name = name
         self.occupied_slots = []
         self.hovering_queue = []
+        # Initialize passenger management lists
+        self.passengers_waiting = []
+        self.passengers_arrived = []
 
     def can_land(self, vtol):
         """Check if there's available space for landing"""
@@ -790,9 +945,18 @@ class Vertiport(Drawable):
         """Remove VTOL from vertiport (takeoff)"""
         if vtol in self.occupied_slots:
             self.occupied_slots.remove(vtol)
+            print(f"🛫 VTOL {vtol.vtol_id}: Took off from {self.name}")
+            
+            # Reset the VTOL's anti-stuck timers
+            vtol.landed_timer = 0
+            vtol.hover_count = 0  # Reset hover count on successful takeoff
+            
+            # Notify all hovering VTOLs that space is available
             if self.hovering_queue:
-                next_vtol = self.hovering_queue[0]
-                next_vtol._can_attempt_landing = True
+                print(f"📢 {self.name}: Notifying {len(self.hovering_queue)} hovering VTOLs that space is available")
+                for hovering_vtol in self.hovering_queue[:]:  # Copy list to avoid modification during iteration
+                    hovering_vtol._can_attempt_landing = True
+                    print(f"   → Notified VTOL {hovering_vtol.vtol_id}")
             return True
         return False
 
@@ -805,6 +969,38 @@ class Vertiport(Drawable):
             'hovering_count': len(self.hovering_queue),
             'occupancy_rate': len(self.occupied_slots) / self.capacity if self.capacity > 0 else 0
         }
+    
+    # Passenger management methods
+    def get_passenger_spawn_position(self):
+        """Return a random position inside the vertiport for spawning passengers"""
+        import random
+        return (
+            random.randint(int(self.x + 5), int(self.x + 55)),
+            random.randint(int(self.y + 5), int(self.y + 55))
+        )
+    
+    def add_passenger(self, passenger):
+        """Add a passenger to this vertiport's waiting area"""
+        self.passengers_waiting.append(passenger)
+        passenger.current_vertiport = self
+        passenger.state = "waiting"
+    
+    def receive_passenger(self, passenger):
+        """Receive a passenger that arrived at this vertiport"""
+        self.passengers_arrived.append(passenger)
+        passenger.current_vertiport = self
+        passenger.arrive_at_destination()
+    
+    def get_passengers_for_destination(self, destination_name, count=1):
+        """Get passengers waiting for a specific destination"""
+        passengers = []
+        for passenger in self.passengers_waiting[:]:
+            if (passenger.destination_vertiport and 
+                getattr(passenger.destination_vertiport, 'name', str(passenger.destination_vertiport)) == destination_name and 
+                len(passengers) < count):
+                passengers.append(passenger)
+                self.passengers_waiting.remove(passenger)
+        return passengers
 
     def draw(self, surface):
         """Draw the vertiport"""
@@ -828,6 +1024,25 @@ class Vertiport(Drawable):
                 font = pygame.font.Font(None, 12)
                 text = font.render(str(len(self.hovering_queue)), True, (0, 0, 0))
                 surface.blit(text, (self.x + 52, self.y - 8))
+        
+        # Draw vertiport name (above and to the right)
+        if hasattr(pygame, 'font') and pygame.font.get_init() and self.name:
+            name_font = pygame.font.Font(None, 18)  # Slightly larger font for visibility
+            name_text = name_font.render(self.name, True, (255, 255, 255))  # White text
+            # Position: above (y - 25) and to the right (x + 65)
+            name_x = self.x + 65
+            name_y = self.y - 25
+            
+            # Add a semi-transparent background for better readability
+            text_rect = name_text.get_rect()
+            bg_rect = pygame.Rect(name_x - 2, name_y - 2, text_rect.width + 4, text_rect.height + 4)
+            bg_surface = pygame.Surface((bg_rect.width, bg_rect.height))
+            bg_surface.set_alpha(128)  # Semi-transparent
+            bg_surface.fill((0, 0, 0))  # Black background
+            surface.blit(bg_surface, (bg_rect.x, bg_rect.y))
+            
+            # Draw the text
+            surface.blit(name_text, (name_x, name_y))
     
     def __str__(self):
         return self.name if self.name else f"VP({self.x},{self.y})"
@@ -1332,6 +1547,7 @@ class SimulatorUI:
     def __init__(self, fps: bool = True, demand_file=None):
         self.title_window = "UAM Network Simulator with Passengers"
         self.fps = fps
+        self._last_time_update = 0  # Initialize time tracking
         
         # Inicializa pygame
         pygame.init()
@@ -1418,19 +1634,17 @@ class SimulatorUI:
             return
             
         # Avança tempo a cada segundo
-        if hasattr(self, '_last_time_update'):
-            if pygame.time.get_ticks() - self._last_time_update > 1000:  # 1 segundo
-                self.sim.matriz_od.advance_time(1)  # Avança 1 minuto
-                self._last_time_update = pygame.time.get_ticks()
-        else:
-            self._last_time_update = pygame.time.get_ticks()
+        current_time = pygame.time.get_ticks()
+        if current_time - self._last_time_update > 1000:  # 1 segundo
+            self.sim.matriz_od.advance_time(1)  # Avança 1 minuto
+            self._last_time_update = current_time
         
         # Gera passageiros baseado na demanda atual
         current_demands = self.sim.matriz_od.get_current_demand()
         
         for demand in current_demands:
             # Pequena chance de gerar passageiro a cada frame
-            if hasattr(pygame, 'time') and pygame.time.get_ticks() % 30 == 0:  # A cada meio segundo
+            if current_time % 30 == 0:  # A cada meio segundo
                 if len(current_demands) > 0:  # Se há demanda
                     self.spawn_passenger(demand['origem'], demand['destino'])
     

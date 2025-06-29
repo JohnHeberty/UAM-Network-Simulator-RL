@@ -13,6 +13,9 @@
 ✅ **NetworkX**: Integração com NetworkX para roteamento avançado e análise de grafos  
 ✅ **Links direcionais**: Suporte completo para redes direcionais e bidirecionais  
 ✅ **Testes abrangentes**: Suite completa de testes organizados
+✅ **Sistema de passageiros**: Passageiros gerados com base em demanda temporal do CSV
+✅ **Embarque/desembarque automatizado**: Passageiros embarcam e desembarcam nos VTOLs automaticamente
+✅ **Animações visuais**: Passageiros sobem verticalmente e desaparecem ao sair dos vertiportos
 
 ---
 
@@ -28,6 +31,9 @@ Simular a operação de uma rede de eVTOLs (Urban Air Mobility) com diferentes c
 * ✅ **Roteamento NetworkX**: Algoritmos avançados de grafos para encontrar rotas ótimas
 * ✅ **Links direcionais**: Suporte para redes unidirecionais e bidirecionais
 * ✅ **Demos interativas**: Scripts demonstrativos para diferentes funcionalidades
+* ✅ **Sistema de passageiros**: Passageiros gerados com base em demanda temporal do CSV
+* ✅ **Embarque/desembarque automatizado**: Passageiros embarcam e desembarcam nos VTOLs automaticamente
+* ✅ **Animações visuais**: Passageiros sobem verticalmente e desaparecem ao sair dos vertiportos
 
 ---
 
@@ -45,6 +51,7 @@ UAM-Network-Simulator-RL/
 │   └── data/                     # Dados CSV
 │       ├── matriz_od_info.csv    # Informações dos vertiportos
 │       ├── matriz_od_link.csv    # Matriz de adjacência direcional
+│       ├── demanda_passageiros.csv # Demanda temporal de passageiros
 │       └── vtol_routes.json      # Rotas históricas (compatibilidade)
 ├── tests/                        # Testes organizados
 │   ├── README.md                 # Documentação dos testes
@@ -110,6 +117,63 @@ V5;;;x;;;
 │   └── generate_od_data.py       # Utilitários
 ├── fix_imports.py                # Script de correção de imports
 └── README.md                     # Este arquivo
+```
+
+---
+
+## 👥 **Sistema de Passageiros**
+
+O simulador inclui um sistema completo de passageiros baseado em demanda temporal:
+
+### **Funcionalidades do Sistema de Passageiros**
+
+1. **Geração Baseada em Demanda**
+   - Passageiros são spawneados automaticamente com base no arquivo `demanda_passageiros.csv`
+   - A demanda varia por horário do dia (ex: maior demanda em horários de rush)
+   - Passageiros são gerados apenas dentro dos vertiportos (nunca fora)
+
+2. **Estados dos Passageiros**
+   - **waiting**: Aguardando no vertiporto de origem
+   - **boarding**: Embarcando no VTOL
+   - **flying**: Voando no VTOL para o destino
+   - **arrived**: Chegou ao destino
+   - **leaving**: Saindo do vertiporto (animação de subida)
+
+3. **Embarque e Desembarque Automatizado**
+   - VTOLs automaticamente embarcam passageiros ao decolar
+   - Apenas passageiros com destino correto embarcam
+   - Desembarque automático ao chegar no destino
+   - Capacidade limitada por VTOL (máximo 4 passageiros)
+
+4. **Animações Visuais**
+   - Passageiros são exibidos como círculos coloridos
+   - Cores diferentes para cada estado (vermelho=waiting, amarelo=boarding, etc.)
+   - Animação de saída: passageiros sobem verticalmente e desaparecem
+   - Contador visual de passageiros nos VTOLs
+
+### **Formato do CSV de Demanda**
+
+```csv
+vertiport_origem,vertiport_destino,hora_inicio,hora_fim,demanda
+V1,V2,04:00,05:00,15
+V2,V3,07:00,09:00,25
+V3,V1,17:00,19:00,20
+```
+
+### **Uso do Sistema de Passageiros**
+
+```python
+from src.Modules.Simulation.engine import MatrizOD
+
+# Adicionar sistema de passageiros à simulação
+simulation.matriz_od = MatrizOD('src/data/demanda_passageiros.csv')
+simulation.matriz_od.current_time_minutes = 4 * 60  # Iniciar às 04:00
+
+# Spawnar passageiros baseado na demanda atual
+current_demands = simulation.matriz_od.get_current_demand()
+for demand in current_demands:
+    # Lógica de spawn implementada no demo_main.py
+    spawn_passengers_from_demand(simulation)
 ```
 
 ---
@@ -240,33 +304,103 @@ while running:
 pygame.quit()
 ```
 
-### **Script Demonstrativo Principal**
+### **Execução Principal**
 
-Execute o demo principal para ver todas as funcionalidades:
+Execute o simulador principal unificado:
 
 ```bash
-# Demo principal unificado com todas as funcionalidades
-python demo_main.py
+# Simulador principal com menu interativo
+python main.py
 ```
 
-**Funcionalidades do Demo Principal:**
+**Opções do Menu:**
+1. **🎮 Simulação Completa (Visual)**: Interface pygame completa com todas as funcionalidades
+2. **🧪 Teste de Passageiros**: Validação automática do sistema de embarque/desembarque  
+3. **📊 Ambos**: Executa teste seguido da simulação visual
+4. **❌ Sair**: Encerra o programa
+
+**Funcionalidades da Simulação Visual:**
 - VTOLs com rotas planejadas do JSON (circulares e ping-pong)
 - VTOLs de simulação tradicional (ponto-a-ponto)
+- Sistema de passageiros baseado em demanda temporal
+- Embarque/desembarque automatizado de passageiros
 - Visualização em tempo real com informações detalhadas
 - Controles interativos:
   - **SPACE**: Pausar/Retomar simulação
   - **I**: Alternar exibição de informações
   - **R**: Alternar exibição de rotas
+  - **P**: Alternar exibição de passageiros
+  - **T**: Executar teste de passageiros em tempo real
   - **S**: Reiniciar rotas planejadas
   - **ESC**: Sair
 
-**Outros Demos Disponíveis:**
+**Outros Arquivos de Execução:**
 ```bash
-# Demo completo com interface pygame
+# Simulador principal unificado (RECOMENDADO)
+python main.py
+
+# Demo visual alternativo
 python visual_demo.py
 
-# Demo de timing de simulação
+# Teste de timing da simulação
 python test_timing.py
+```
+
+---
+
+## 👥 **Sistema de Passageiros**
+
+O simulador inclui um sistema completo de passageiros baseado em demanda temporal:
+
+### **Funcionalidades do Sistema de Passageiros**
+
+1. **Geração Baseada em Demanda**
+   - Passageiros são spawneados automaticamente com base no arquivo `demanda_passageiros.csv`
+   - A demanda varia por horário do dia (ex: maior demanda em horários de rush)
+   - Passageiros são gerados apenas dentro dos vertiportos (nunca fora)
+
+2. **Estados dos Passageiros**
+   - **waiting**: Aguardando no vertiporto de origem
+   - **boarding**: Embarcando no VTOL
+   - **flying**: Voando no VTOL para o destino
+   - **arrived**: Chegou ao destino
+   - **leaving**: Saindo do vertiporto (animação de subida)
+
+3. **Embarque e Desembarque Automatizado**
+   - VTOLs automaticamente embarcam passageiros ao decolar
+   - Apenas passageiros com destino correto embarcam
+   - Desembarque automático ao chegar no destino
+   - Capacidade limitada por VTOL (máximo 4 passageiros)
+
+4. **Animações Visuais**
+   - Passageiros são exibidos como círculos coloridos
+   - Cores diferentes para cada estado (vermelho=waiting, amarelo=boarding, etc.)
+   - Animação de saída: passageiros sobem verticalmente e desaparecem
+   - Contador visual de passageiros nos VTOLs
+
+### **Formato do CSV de Demanda**
+
+```csv
+vertiport_origem,vertiport_destino,hora_inicio,hora_fim,demanda
+V1,V2,04:00,05:00,15
+V2,V3,07:00,09:00,25
+V3,V1,17:00,19:00,20
+```
+
+### **Uso do Sistema de Passageiros**
+
+```python
+from src.Modules.Simulation.engine import MatrizOD
+
+# Adicionar sistema de passageiros à simulação
+simulation.matriz_od = MatrizOD('src/data/demanda_passageiros.csv')
+simulation.matriz_od.current_time_minutes = 4 * 60  # Iniciar às 04:00
+
+# Spawnar passageiros baseado na demanda atual
+current_demands = simulation.matriz_od.get_current_demand()
+for demand in current_demands:
+    # Lógica de spawn implementada no demo_main.py
+    spawn_passengers_from_demand(simulation)
 ```
 
 ---
@@ -289,8 +423,14 @@ python test_timing.py
      - `flying`: Aeronave em movimento com animações de rotor
      - `landing`: Sequência de pouso com indicadores
      - `hovering`: Efeitos amarelos de pairar quando aguardando pouso
+   - Contador de passageiros exibido acima de cada VTOL
 
-3. **Gerenciamento de Vertiportos**
+3. **Passageiros**
+   - Círculos coloridos representando passageiros nos vertiportos
+   - Animação de movimento e estado visual
+   - Contador de passageiros por estado no overlay de informações
+
+4. **Gerenciamento de Vertiportos**
    - Indicadores de ocupação em tempo real
    - Visualização de gerenciamento de capacidade
    - Exibição de fila de pairar para vertiportos ocupados
@@ -344,6 +484,11 @@ python test_timing.py
 - NetworkX para algoritmos avançados de grafos
 - Código autodocumentado e manutenível
 - Gestão de memória com cleanup automático
+
+### **✅ Sistema de Passageiros**
+- Geração de passageiros com base em demanda temporal do CSV
+- Embarque e desembarque automatizados nos VTOLs
+- Animações visuais de passageiros subindo e descendo verticalmente
 
 ---
 
