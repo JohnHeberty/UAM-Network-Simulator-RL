@@ -3,6 +3,16 @@
 **Simulador de Rede de Mobilidade Aérea Urbana (Urban Air Mobility)**
 
 ---
+<div>
+    <p align="center">
+        <img src="./UAM-Network-Simulator-V1.gif" alt="Demonstração do UAM Network Simulator" width="650"/>
+    </p>
+    <p align="center">
+        <em>Exemplo de simulação visual: movimentação de eVTOLs, passageiros e vertiportos.</em>
+    </p>
+</div>
+
+---
 
 ## 🎯 **Objetivo do Projeto**
 
